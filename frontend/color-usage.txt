@@ -1,0 +1,12 @@
+Usage in Components
+
+// Fonts
+className="font-jakarta"  // UI text (default)
+className="font-instrument" // Marketing text
+className="font-inter"    // Buttons
+
+// Colors
+className="bg-primary text-primary-foreground"  // Purple button
+className="bg-secondary text-secondary-foreground" // Blue CTA
+className="text-muted-foreground" // Secondary text
+className="text-placeholder" // Placeholder text

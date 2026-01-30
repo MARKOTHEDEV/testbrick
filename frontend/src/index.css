@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+@theme {
+  /* ===== FONTS (from Figma) ===== */
+  --font-instrument: "Instrument Sans", sans-serif;
+  --font-jakarta: "Plus Jakarta Sans", sans-serif;
+  --font-inter: "Inter", sans-serif;
+
+  /* ===== COLORS (from Figma) ===== */
+  /* Primary - Purple */
+  --color-primary: #6e0699;
+  --color-primary-foreground: #ffffff;
+
+  /* Secondary - Blue (CTA) */
+  --color-secondary: #5570f1;
+  --color-secondary-foreground: #ffffff;
+
+  /* Text colors */
+  --color-foreground: #1e1e1e;
+  --color-muted-foreground: #8b8d97;
+  --color-placeholder: #afb0b6;
+
+  /* Background colors */
+  --color-background: #ffffff;
+  --color-input: rgba(250, 250, 250, 0.6);
+
+  /* UI colors */
+  --color-card: #ffffff;
+  --color-card-foreground: #1e1e1e;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1e1e1e;
+  --color-muted: #fafafa;
+  --color-accent: #6e0699;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e5e5e5;
+  --color-ring: #6e0699;
+
+  /* Border radius */
+  --radius: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-pill: 70px;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-jakarta);
+  }
+}
+
+.dark {
+  --color-background: #121212;
+  --color-foreground: #ffffff;
+  --color-card: #1e1e1e;
+  --color-card-foreground: #ffffff;
+  --color-popover: #1e1e1e;
+  --color-popover-foreground: #ffffff;
+  --color-primary: #9333ea;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #6b7cff;
+  --color-secondary-foreground: #ffffff;
+  --color-muted: #2a2a2a;
+  --color-muted-foreground: #a1a1aa;
+  --color-accent: #9333ea;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #2a2a2a;
+  --color-input: rgba(42, 42, 42, 0.6);
+  --color-ring: #9333ea;
+}
