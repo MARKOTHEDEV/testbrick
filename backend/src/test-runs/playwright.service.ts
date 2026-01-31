@@ -6,15 +6,20 @@ import {
   Page,
   BrowserContextOptions,
 } from 'playwright';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 export interface PlaywrightContext {
   browser: Browser;
   context: BrowserContext;
   page: Page;
+  videoDir?: string;
 }
 
 export interface PlaywrightOptions {
   headless?: boolean;
+  recordVideo?: boolean;
 }
 
 /**
@@ -263,6 +268,7 @@ export class PlaywrightService implements OnModuleDestroy {
     contextOptions?: BrowserContextOptions,
   ): Promise<PlaywrightContext> {
     const headless = playwrightOptions?.headless ?? true; // Default to headless
+    const recordVideo = playwrightOptions?.recordVideo ?? true; // Default to recording video
 
     const browser = await chromium.launch({
       headless,
@@ -271,8 +277,22 @@ export class PlaywrightService implements OnModuleDestroy {
 
     this.activeBrowsers.add(browser);
 
+    // Create temp directory for video recording
+    let videoDir: string | undefined;
+    if (recordVideo) {
+      videoDir = fs.mkdtempSync(path.join(os.tmpdir(), 'testbloc-video-'));
+    }
+
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
+      ...(recordVideo && videoDir
+        ? {
+            recordVideo: {
+              dir: videoDir,
+              size: { width: 1280, height: 720 },
+            },
+          }
+        : {}),
       ...contextOptions,
     });
 
@@ -285,7 +305,7 @@ export class PlaywrightService implements OnModuleDestroy {
     page.setDefaultTimeout(30000); // 30 seconds
     page.setDefaultNavigationTimeout(30000);
 
-    return { browser, context, page };
+    return { browser, context, page, videoDir };
   }
 
   /**
@@ -317,14 +337,63 @@ export class PlaywrightService implements OnModuleDestroy {
   }
 
   /**
+   * Get video as base64 data URL after test execution
+   * Must be called after closing the page but before closing the browser
+   */
+  async getVideoAsBase64(page: Page, videoDir?: string): Promise<string | null> {
+    if (!videoDir) return null;
+
+    try {
+      // Get the video path from the page (Playwright saves it automatically)
+      const video = page.video();
+      if (!video) return null;
+
+      // Wait for video to be saved
+      const videoPath = await video.path();
+      if (!videoPath || !fs.existsSync(videoPath)) return null;
+
+      // Read and convert to base64
+      const videoBuffer = fs.readFileSync(videoPath);
+      const base64 = videoBuffer.toString('base64');
+
+      return `data:video/webm;base64,${base64}`;
+    } catch (error) {
+      console.error('Failed to get video:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Cleanup video directory
+   */
+  cleanupVideoDir(videoDir?: string): void {
+    if (!videoDir) return;
+
+    try {
+      // Remove all files in the directory
+      const files = fs.readdirSync(videoDir);
+      for (const file of files) {
+        fs.unlinkSync(path.join(videoDir, file));
+      }
+      // Remove the directory
+      fs.rmdirSync(videoDir);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  /**
    * Close browser and cleanup resources
    */
-  async close(browser: Browser): Promise<void> {
+  async close(browser: Browser, videoDir?: string): Promise<void> {
     this.activeBrowsers.delete(browser);
     try {
       await browser.close();
     } catch {
       // Ignore errors during cleanup
     }
+
+    // Cleanup video directory
+    this.cleanupVideoDir(videoDir);
   }
 }

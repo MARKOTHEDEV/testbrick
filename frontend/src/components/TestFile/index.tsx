@@ -441,6 +441,9 @@ const TestFile = ({
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         testName={fileName}
+        shareToken={currentRun?.shareToken}
+        runStatus={currentRun?.status}
+        onRunTest={() => handleRunClick()}
       />
 
       {/* Install Extension Modal */}

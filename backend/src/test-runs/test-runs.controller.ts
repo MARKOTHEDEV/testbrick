@@ -92,4 +92,12 @@ export class TestRunsController {
   async findByShareToken(@Param('shareToken') shareToken: string) {
     return this.testRunsService.findByShareToken(shareToken);
   }
+
+  @Post('share/:shareToken/verify')
+  @ApiOperation({ summary: 'Re-run a test to verify a fix (public access)' })
+  @ApiResponse({ status: 201, description: 'New test run started' })
+  @ApiResponse({ status: 404, description: 'Test run not found' })
+  async verifyFix(@Param('shareToken') shareToken: string) {
+    return this.testRunsService.verifyFix(shareToken);
+  }
 }

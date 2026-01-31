@@ -106,7 +106,7 @@ model TestRun {
   startedAt DateTime?
   endedAt   DateTime?
 
-  // Video recording URL (Cloudinary)
+  // Video recording URL (base64 or Cloudinary)
   videoUrl String?
 
   // Share token for public access
@@ -118,11 +118,33 @@ model TestRun {
   testFileId String
   testFile   TestFile @relation(fields: [testFileId], references: [id], onDelete: Cascade)
 
-  stepResults StepResult[]
-  errors      TestError[]
+  stepResults     StepResult[]
+  errors          TestError[]
+  networkRequests NetworkRequest[]
 
   @@index([testFileId])
   @@index([shareToken])
+}
+
+// NetworkRequest - captured XHR/fetch requests during test run
+model NetworkRequest {
+  id           String   @id @default(cuid())
+  method       String   // GET, POST, PUT, DELETE, etc.
+  url          String
+  status       Int?     // HTTP status code (null if failed before response)
+  statusText   String?
+  resourceType String   // xhr, fetch, document, stylesheet, etc.
+  duration     Int?     // Duration in milliseconds
+  requestSize  Int?     // Request body size
+  responseSize Int?     // Response body size
+  failed       Boolean  @default(false) // True if request failed
+  errorText    String?  // Error message if failed
+  timestamp    DateTime @default(now())
+
+  testRunId String
+  testRun   TestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+
+  @@index([testRunId])
 }
 
 enum TestRunStatus {

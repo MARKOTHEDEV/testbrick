@@ -46,7 +46,7 @@ export const router = createBrowserRouter([
 
       // Public share page (no auth required)
       {
-        path: "/share/:testId",
+        path: "/share/:shareToken",
         element: withSuspense(TestSharePage),
       },
 

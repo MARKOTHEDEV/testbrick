@@ -13,6 +13,20 @@ interface CapturedError {
   context?: Prisma.InputJsonValue;
 }
 
+interface CapturedNetworkRequest {
+  method: string;
+  url: string;
+  resourceType: string;
+  startTime: number;
+  status?: number;
+  statusText?: string;
+  duration?: number;
+  requestSize?: number;
+  responseSize?: number;
+  failed: boolean;
+  errorText?: string;
+}
+
 @Injectable()
 export class TestRunsService {
   // Track active test runs for cancellation
@@ -103,6 +117,7 @@ export class TestRunsService {
   ) {
     let context: PlaywrightContext | null = null;
     const capturedErrors: CapturedError[] = [];
+    const capturedRequests: Map<string, CapturedNetworkRequest> = new Map();
 
     try {
       // Update status to running
@@ -118,8 +133,9 @@ export class TestRunsService {
       context = await this.playwrightService.createContext({ headless });
       const { page, browser } = context;
 
-      // Setup error listeners
+      // Setup error and network listeners
       this.setupErrorListeners(page, capturedErrors);
+      this.setupNetworkListeners(page, capturedRequests);
 
       // Navigate to base URL first
       await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
@@ -231,17 +247,44 @@ export class TestRunsService {
         }
       }
 
-      // Update test run status
+      // Save captured network requests
+      const networkRequests = Array.from(capturedRequests.values());
+      if (networkRequests.length > 0) {
+        await this.prisma.networkRequest.createMany({
+          data: networkRequests.map((req) => ({
+            testRunId,
+            method: req.method,
+            url: req.url,
+            status: req.status,
+            statusText: req.statusText,
+            resourceType: req.resourceType,
+            duration: req.duration,
+            requestSize: req.requestSize,
+            responseSize: req.responseSize,
+            failed: req.failed,
+            errorText: req.errorText,
+          })),
+        });
+      }
+
+      // Get video before closing the browser
+      const videoUrl = await this.playwrightService.getVideoAsBase64(
+        page,
+        context.videoDir,
+      );
+
+      // Update test run status with video
       await this.prisma.testRun.update({
         where: { id: testRunId },
         data: {
           status: finalStatus,
           endedAt: new Date(),
+          videoUrl,
         },
       });
 
-      // Cleanup
-      await this.playwrightService.close(browser);
+      // Cleanup (including video temp directory)
+      await this.playwrightService.close(browser, context.videoDir);
     } catch (error) {
       // Handle unexpected errors
       const errorMessage =
@@ -265,7 +308,7 @@ export class TestRunsService {
 
       // Cleanup browser if it exists
       if (context) {
-        await this.playwrightService.close(context.browser);
+        await this.playwrightService.close(context.browser, context.videoDir);
       }
     } finally {
       // Remove from active runs
@@ -288,7 +331,7 @@ export class TestRunsService {
       }
     });
 
-    // Capture network errors (4xx, 5xx)
+    // Capture network errors (4xx, 5xx) - also logged to TestError for visibility
     page.on('response', (response) => {
       if (response.status() >= 400) {
         capturedErrors.push({
@@ -300,6 +343,70 @@ export class TestRunsService {
             status: response.status(),
           } as Prisma.InputJsonValue,
         });
+      }
+    });
+  }
+
+  /**
+   * Setup network request listeners on the page
+   * Captures all XHR/fetch requests for the network tab
+   */
+  private setupNetworkListeners(
+    page: Page,
+    capturedRequests: Map<string, CapturedNetworkRequest>,
+  ) {
+    // Capture request start
+    page.on('request', (request) => {
+      const resourceType = request.resourceType();
+      // Only capture XHR and fetch requests (what developers care about)
+      if (resourceType === 'xhr' || resourceType === 'fetch') {
+        const requestId = `${request.method()}-${request.url()}-${Date.now()}`;
+        capturedRequests.set(requestId, {
+          method: request.method(),
+          url: request.url(),
+          resourceType,
+          startTime: Date.now(),
+          failed: false,
+          requestSize: request.postData()?.length,
+        });
+        // Store request ID on the request for later lookup
+        (request as unknown as { _captureId: string })._captureId = requestId;
+      }
+    });
+
+    // Capture request completion
+    page.on('response', async (response) => {
+      const request = response.request();
+      const requestId = (request as unknown as { _captureId?: string })._captureId;
+
+      if (requestId && capturedRequests.has(requestId)) {
+        const captured = capturedRequests.get(requestId)!;
+        captured.status = response.status();
+        captured.statusText = response.statusText();
+        captured.duration = Date.now() - captured.startTime;
+
+        // Try to get response size
+        try {
+          const headers = response.headers();
+          const contentLength = headers['content-length'];
+          if (contentLength) {
+            captured.responseSize = parseInt(contentLength, 10);
+          }
+        } catch {
+          // Ignore errors getting response size
+        }
+      }
+    });
+
+    // Capture request failures
+    page.on('requestfailed', (request) => {
+      const requestId = (request as unknown as { _captureId?: string })._captureId;
+
+      if (requestId && capturedRequests.has(requestId)) {
+        const captured = capturedRequests.get(requestId)!;
+        captured.failed = true;
+        captured.errorText = request.failure()?.errorText || 'Request failed';
+        captured.duration = Date.now() - captured.startTime;
       }
     });
   }
@@ -322,6 +429,9 @@ export class TestRunsService {
           },
         },
         errors: {
+          orderBy: { timestamp: 'asc' },
+        },
+        networkRequests: {
           orderBy: { timestamp: 'asc' },
         },
         testFile: {
@@ -366,6 +476,9 @@ export class TestRunsService {
           },
         },
         errors: {
+          orderBy: { timestamp: 'asc' },
+        },
+        networkRequests: {
           orderBy: { timestamp: 'asc' },
         },
         testFile: true,
@@ -447,6 +560,9 @@ export class TestRunsService {
           },
         },
         errors: true,
+        networkRequests: {
+          orderBy: { timestamp: 'asc' },
+        },
       },
     });
 
@@ -488,6 +604,20 @@ export class TestRunsService {
       url: string | null;
       timestamp: Date;
       context: unknown;
+    }>;
+    networkRequests?: Array<{
+      id: string;
+      method: string;
+      url: string;
+      status: number | null;
+      statusText: string | null;
+      resourceType: string;
+      duration: number | null;
+      requestSize: number | null;
+      responseSize: number | null;
+      failed: boolean;
+      errorText: string | null;
+      timestamp: Date;
     }>;
     testFile?: {
       id: string;
@@ -535,7 +665,82 @@ export class TestRunsService {
         timestamp: error.timestamp,
         context: error.context,
       })),
+      networkRequests: (testRun.networkRequests || []).map((req) => ({
+        id: req.id,
+        method: req.method,
+        url: req.url,
+        status: req.status,
+        statusText: req.statusText,
+        resourceType: req.resourceType,
+        duration: req.duration,
+        requestSize: req.requestSize,
+        responseSize: req.responseSize,
+        failed: req.failed,
+        errorText: req.errorText,
+        timestamp: req.timestamp,
+      })),
     };
+  }
+
+  /**
+   * Verify fix by re-running the test (public access via share token)
+   */
+  async verifyFix(shareToken: string) {
+    // Find the original test run by share token
+    const originalRun = await this.prisma.testRun.findUnique({
+      where: { shareToken },
+      include: {
+        testFile: {
+          include: {
+            steps: {
+              orderBy: { stepNumber: 'asc' },
+            },
+            folder: {
+              include: {
+                project: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!originalRun) {
+      throw new NotFoundException('Test run not found');
+    }
+
+    const testFile = originalRun.testFile;
+
+    if (testFile.steps.length === 0) {
+      throw new ForbiddenException('Cannot run test with no steps');
+    }
+
+    // Create a new test run
+    const testRun = await this.prisma.testRun.create({
+      data: {
+        testFileId: testFile.id,
+        status: TestRunStatus.PENDING,
+        shareToken: nanoid(12),
+      },
+    });
+
+    // Create step results (all pending initially)
+    await this.prisma.stepResult.createMany({
+      data: testFile.steps.map((step) => ({
+        testRunId: testRun.id,
+        testStepId: step.id,
+        status: StepResultStatus.PENDING,
+      })),
+    });
+
+    // Track this run
+    this.activeRuns.set(testRun.id, { cancelled: false });
+
+    // Execute test asynchronously (don't await) - always headless for public verify
+    this.executeTest(testRun.id, testFile, testFile.folder.project.baseUrl, true);
+
+    // Return the new run immediately (client will poll for status using new shareToken)
+    return this.findByShareToken(testRun.shareToken!);
   }
 
   /**
