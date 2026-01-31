@@ -78,3 +78,47 @@ export interface UpdateProjectInput {
   description?: string;
   baseUrl?: string;
 }
+
+// Folders API
+export interface Folder {
+  id: string;
+  name: string;
+  projectId: string;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    testFiles: number;
+  };
+}
+
+export interface CreateFolderInput {
+  name: string;
+}
+
+export interface UpdateFolderInput {
+  name?: string;
+}
+
+// Test Files API
+export interface TestFile {
+  id: string;
+  name: string;
+  description: string | null;
+  folderId: string;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    steps: number;
+    testRuns: number;
+  };
+}
+
+export interface CreateTestFileInput {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateTestFileInput {
+  name?: string;
+  description?: string;
+}

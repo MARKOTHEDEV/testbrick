@@ -1,12 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { TestBrickLogo } from "@/components/ui/testbrick-logo";
 import { UserMenu } from "@/components/user-menu";
 import CreateProjectModal from "@/components/CreateProjectModal";
 import EditProjectModal from "@/components/EditProjectModal";
+import CreateFolderModal from "@/components/CreateFolderModal";
+import EditFolderModal from "@/components/EditFolderModal";
+import CreateTestFileModal from "@/components/CreateTestFileModal";
+import EditTestFileModal from "@/components/EditTestFileModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useApi } from "@/hooks/useApi";
-import type { Project, CreateProjectInput, UpdateProjectInput } from "@/lib/api";
+import type {
+  Project,
+  CreateProjectInput,
+  UpdateProjectInput,
+  Folder as FolderType,
+  CreateFolderInput,
+  UpdateFolderInput,
+  TestFile,
+  CreateTestFileInput,
+  UpdateTestFileInput,
+} from "@/lib/api";
 import {
   Search,
   Bell,
@@ -262,22 +276,12 @@ const DashboardTopBar = ({
   );
 };
 
-// Folder type for the sidebar
-interface FolderWithFiles {
-  id: string;
-  name: string;
-  createdAt: string;
-  _count: {
-    testFiles: number;
-  };
-  testFiles: Array<{
-    id: string;
-    name: string;
-    _count: {
-      steps: number;
-      testRuns: number;
-    };
-  }>;
+// Test file type for the sidebar (extends TestFile)
+interface TestFileWithCounts extends TestFile {}
+
+// Folder type for the sidebar (extends FolderType with testFiles)
+interface FolderWithFiles extends FolderType {
+  testFiles: TestFileWithCounts[];
 }
 
 interface DashboardSidebarProps {
@@ -287,6 +291,11 @@ interface DashboardSidebarProps {
   folders: FolderWithFiles[];
   isLoadingFolders: boolean;
   onCreateFolder: () => void;
+  onEditFolder: (folder: FolderWithFiles) => void;
+  onDeleteFolder: (folder: FolderWithFiles) => void;
+  onCreateTestFile: (folder: FolderWithFiles) => void;
+  onEditTestFile: (testFile: TestFileWithCounts) => void;
+  onDeleteTestFile: (testFile: TestFileWithCounts) => void;
 }
 
 const DashboardSidebar = ({
@@ -296,11 +305,23 @@ const DashboardSidebar = ({
   folders,
   isLoadingFolders,
   onCreateFolder,
+  onEditFolder,
+  onDeleteFolder,
+  onCreateTestFile,
+  onEditTestFile,
+  onDeleteTestFile,
 }: DashboardSidebarProps) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set(),
   );
   const [environment] = useState("staging");
+  const [folderMenuOpenId, setFolderMenuOpenId] = useState<string | null>(null);
+  const [testFileMenuOpenId, setTestFileMenuOpenId] = useState<string | null>(null);
+
+  // Extract currently selected file ID from URL
+  const selectedFileId = location.pathname.match(/\/dashboard\/test\/(.+)/)?.[1] || null;
 
   const toggleFolder = (folderId: string) => {
     setExpandedFolders((prev) => {
@@ -423,18 +444,21 @@ const DashboardSidebar = ({
           <div className="flex flex-col gap-1">
             {folders.map((folder) => {
               const isExpanded = expandedFolders.has(folder.id);
+              const isMenuOpen = folderMenuOpenId === folder.id;
               return (
                 <div key={folder.id}>
                   {/* Folder Row */}
-                  <button
-                    onClick={() => toggleFolder(folder.id)}
-                    className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded ${
+                  <div
+                    className={`relative flex items-center justify-between px-2.5 py-2.5 rounded ${
                       isExpanded
                         ? "bg-[#fcf5ff] text-primary"
                         : "hover:bg-[#f9f9f9] text-[#667085]"
                     }`}
                   >
-                    <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => toggleFolder(folder.id)}
+                      className="flex items-center gap-1.5 flex-1"
+                    >
                       <ChevronDown
                         className={`size-4 transition-transform ${isExpanded ? "" : "-rotate-90"}`}
                       />
@@ -444,37 +468,133 @@ const DashboardSidebar = ({
                         <Folder className="size-5" />
                       )}
                       <span className="text-sm">{folder.name}</span>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-[#667085]">
                         {folder._count.testFiles} files
                       </span>
-                      <MoreVertical className="size-4 text-[#667085]" />
+                      <div className="relative">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFolderMenuOpenId(isMenuOpen ? null : folder.id);
+                          }}
+                          className="p-1 hover:bg-white/50 rounded text-[#667085] hover:text-[#1f2937]"
+                        >
+                          <MoreVertical className="size-4" />
+                        </button>
+                        {isMenuOpen && (
+                          <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-border z-50 overflow-hidden">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFolderMenuOpenId(null);
+                                onEditFolder(folder);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1f2937] hover:bg-[#f9f9f9]"
+                            >
+                              <Pencil className="size-4" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setFolderMenuOpenId(null);
+                                onDeleteFolder(folder);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50"
+                            >
+                              <Trash2 className="size-4" />
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </button>
+                  </div>
 
                   {/* Expanded Folder Content - Test Files */}
                   {isExpanded && (
                     <div className="ml-8 mt-1 flex flex-col gap-1">
+                      {/* Add Test File Button */}
+                      <button
+                        onClick={() => onCreateTestFile(folder)}
+                        className="flex items-center gap-2 px-2 py-2 rounded hover:bg-[#f9f9f9] text-primary text-sm"
+                      >
+                        <Plus className="size-4" />
+                        <span>Add Test File</span>
+                      </button>
                       {folder.testFiles.length === 0 ? (
                         <p className="text-xs text-[#667085] italic py-2 px-2">
                           No test files yet
                         </p>
                       ) : (
-                        folder.testFiles.map((file) => (
-                          <button
-                            key={file.id}
-                            className="flex items-center gap-2 px-2 py-2 rounded hover:bg-[#f9f9f9] text-[#667085]"
-                          >
-                            <FileText className="size-4" />
-                            <span className="text-sm truncate">
-                              {file.name}
-                            </span>
-                            <span className="text-xs ml-auto">
-                              {file._count.steps} steps
-                            </span>
-                          </button>
-                        ))
+                        folder.testFiles.map((file) => {
+                          const isFileMenuOpen = testFileMenuOpenId === file.id;
+                          const isSelected = selectedFileId === file.id;
+                          return (
+                            <div
+                              key={file.id}
+                              className={`flex items-center justify-between px-2 py-2 rounded group ${
+                                isSelected
+                                  ? "bg-[#fcf5ff] text-primary"
+                                  : "hover:bg-[#f9f9f9] text-[#667085]"
+                              }`}
+                            >
+                              <button
+                                onClick={() => navigate(`/dashboard/test/${file.id}`)}
+                                className="flex items-center gap-2 flex-1 min-w-0"
+                              >
+                                <FileText className={`size-4 shrink-0 ${isSelected ? "text-primary" : ""}`} />
+                                <span className={`text-sm truncate ${isSelected ? "font-medium" : ""}`}>
+                                  {file.name}
+                                </span>
+                              </button>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs">
+                                  {file._count.steps} steps
+                                </span>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setTestFileMenuOpenId(isFileMenuOpen ? null : file.id);
+                                    }}
+                                    className="p-1 hover:bg-white/50 rounded text-[#667085] hover:text-[#1f2937] opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <MoreVertical className="size-4" />
+                                  </button>
+                                  {isFileMenuOpen && (
+                                    <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border border-border z-50 overflow-hidden">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setTestFileMenuOpenId(null);
+                                          onEditTestFile(file);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#1f2937] hover:bg-[#f9f9f9]"
+                                      >
+                                        <Pencil className="size-4" />
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setTestFileMenuOpenId(null);
+                                          onDeleteTestFile(file);
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50"
+                                      >
+                                        <Trash2 className="size-4" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   )}
@@ -484,6 +604,21 @@ const DashboardSidebar = ({
           </div>
         )}
       </div>
+
+      {/* Click outside handler for folder menu */}
+      {folderMenuOpenId && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setFolderMenuOpenId(null)}
+        />
+      )}
+      {/* Click outside handler for test file menu */}
+      {testFileMenuOpenId && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setTestFileMenuOpenId(null)}
+        />
+      )}
     </aside>
   );
 };
@@ -495,12 +630,28 @@ const DashboardLayout = () => {
   const [folders, setFolders] = useState<FolderWithFiles[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isLoadingFolders, setIsLoadingFolders] = useState(false);
+  // Project modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Folder modal state
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
+  const [isEditFolderModalOpen, setIsEditFolderModalOpen] = useState(false);
+  const [isDeleteFolderDialogOpen, setIsDeleteFolderDialogOpen] = useState(false);
+  const [folderToEdit, setFolderToEdit] = useState<FolderWithFiles | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<FolderWithFiles | null>(null);
+  const [isDeletingFolder, setIsDeletingFolder] = useState(false);
+  // Test file modal state
+  const [isCreateTestFileModalOpen, setIsCreateTestFileModalOpen] = useState(false);
+  const [isEditTestFileModalOpen, setIsEditTestFileModalOpen] = useState(false);
+  const [isDeleteTestFileDialogOpen, setIsDeleteTestFileDialogOpen] = useState(false);
+  const [folderForNewTestFile, setFolderForNewTestFile] = useState<FolderWithFiles | null>(null);
+  const [testFileToEdit, setTestFileToEdit] = useState<TestFileWithCounts | null>(null);
+  const [testFileToDelete, setTestFileToDelete] = useState<TestFileWithCounts | null>(null);
+  const [isDeletingTestFile, setIsDeletingTestFile] = useState(false);
   const { authFetch } = useApi();
 
   // Fetch all projects
@@ -530,16 +681,30 @@ const DashboardLayout = () => {
     }
   }, [authFetch]);
 
-  // Fetch folders for selected project
+  // Fetch folders for selected project (with test files)
   const fetchFolders = useCallback(
     async (projectId: string) => {
       setIsLoadingFolders(true);
       try {
-        // Using the findOne endpoint which includes folders
-        const data = await authFetch<Project & { folders: FolderWithFiles[] }>(
-          `/projects/${projectId}`,
+        const foldersData = await authFetch<FolderType[]>(
+          `/projects/${projectId}/folders`,
         );
-        setFolders(data.folders || []);
+
+        // Fetch test files for each folder in parallel
+        const foldersWithFiles = await Promise.all(
+          foldersData.map(async (folder) => {
+            try {
+              const testFiles = await authFetch<TestFile[]>(
+                `/folders/${folder.id}/tests`,
+              );
+              return { ...folder, testFiles };
+            } catch {
+              return { ...folder, testFiles: [] };
+            }
+          })
+        );
+
+        setFolders(foldersWithFiles);
       } catch (err) {
         console.error("Failed to fetch folders:", err);
         setFolders([]);
@@ -579,8 +744,151 @@ const DashboardLayout = () => {
   };
 
   const handleCreateFolder = () => {
-    // TODO: Implement create folder modal (Task 1.5.1)
-    console.log("Create folder for project:", selectedProject?.id);
+    setIsCreateFolderModalOpen(true);
+  };
+
+  const handleSubmitCreateFolder = async (data: CreateFolderInput) => {
+    if (!selectedProject) return;
+
+    const newFolder = await authFetch<FolderType>(
+      `/projects/${selectedProject.id}/folders`,
+      {
+        method: "POST",
+        body: data,
+      }
+    );
+
+    // Add to folders list
+    setFolders((prev) => [...prev, { ...newFolder, testFiles: [] }]);
+  };
+
+  const handleEditFolder = (folder: FolderWithFiles) => {
+    setFolderToEdit(folder);
+    setIsEditFolderModalOpen(true);
+  };
+
+  const handleUpdateFolder = async (data: UpdateFolderInput) => {
+    if (!folderToEdit) return;
+
+    const updated = await authFetch<FolderType>(`/folders/${folderToEdit.id}`, {
+      method: "PATCH",
+      body: data,
+    });
+
+    // Update folders list
+    setFolders((prev) =>
+      prev.map((f) =>
+        f.id === updated.id ? { ...updated, testFiles: f.testFiles } : f
+      )
+    );
+  };
+
+  const handleDeleteFolder = (folder: FolderWithFiles) => {
+    setFolderToDelete(folder);
+    setIsDeleteFolderDialogOpen(true);
+  };
+
+  const handleConfirmDeleteFolder = async () => {
+    if (!folderToDelete) return;
+
+    setIsDeletingFolder(true);
+    try {
+      await authFetch(`/folders/${folderToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      // Remove from folders list
+      setFolders((prev) => prev.filter((f) => f.id !== folderToDelete.id));
+
+      setIsDeleteFolderDialogOpen(false);
+      setFolderToDelete(null);
+    } catch (err) {
+      console.error("Failed to delete folder:", err);
+    } finally {
+      setIsDeletingFolder(false);
+    }
+  };
+
+  // Test file handlers
+  const handleCreateTestFile = (folder: FolderWithFiles) => {
+    setFolderForNewTestFile(folder);
+    setIsCreateTestFileModalOpen(true);
+  };
+
+  const handleSubmitCreateTestFile = async (data: CreateTestFileInput) => {
+    if (!folderForNewTestFile) return;
+
+    const newTestFile = await authFetch<TestFile>(
+      `/folders/${folderForNewTestFile.id}/tests`,
+      {
+        method: "POST",
+        body: data,
+      }
+    );
+
+    // Add to the folder's test files
+    setFolders((prev) =>
+      prev.map((f) =>
+        f.id === folderForNewTestFile.id
+          ? { ...f, testFiles: [...f.testFiles, newTestFile] }
+          : f
+      )
+    );
+  };
+
+  const handleEditTestFile = (testFile: TestFileWithCounts) => {
+    setTestFileToEdit(testFile);
+    setIsEditTestFileModalOpen(true);
+  };
+
+  const handleUpdateTestFile = async (data: UpdateTestFileInput) => {
+    if (!testFileToEdit) return;
+
+    const updated = await authFetch<TestFile>(`/tests/${testFileToEdit.id}`, {
+      method: "PATCH",
+      body: data,
+    });
+
+    // Update in the folder's test files
+    setFolders((prev) =>
+      prev.map((f) => ({
+        ...f,
+        testFiles: f.testFiles.map((tf) =>
+          tf.id === updated.id ? { ...updated } : tf
+        ),
+      }))
+    );
+  };
+
+  const handleDeleteTestFile = (testFile: TestFileWithCounts) => {
+    setTestFileToDelete(testFile);
+    setIsDeleteTestFileDialogOpen(true);
+  };
+
+  const handleConfirmDeleteTestFile = async () => {
+    if (!testFileToDelete) return;
+
+    setIsDeletingTestFile(true);
+    try {
+      await authFetch(`/tests/${testFileToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      // Remove from the folder's test files
+      setFolders((prev) =>
+        prev.map((f) => ({
+          ...f,
+          testFiles: f.testFiles.filter((tf) => tf.id !== testFileToDelete.id),
+        }))
+      );
+
+      setIsDeleteTestFileDialogOpen(false);
+      setTestFileToDelete(null);
+    } catch (err) {
+      console.error("Failed to delete test file:", err);
+    } finally {
+      setIsDeletingTestFile(false);
+    }
   };
 
   const handleEditProject = (project: Project) => {
@@ -659,6 +967,11 @@ const DashboardLayout = () => {
           folders={folders}
           isLoadingFolders={isLoadingFolders}
           onCreateFolder={handleCreateFolder}
+          onEditFolder={handleEditFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onCreateTestFile={handleCreateTestFile}
+          onEditTestFile={handleEditTestFile}
+          onDeleteTestFile={handleDeleteTestFile}
         />
         <main className="flex-1 overflow-auto">
           <Outlet />
@@ -690,6 +1003,66 @@ const DashboardLayout = () => {
         confirmLabel="Delete"
         variant="danger"
         isLoading={isDeleting}
+      />
+      {/* Folder Modals */}
+      <CreateFolderModal
+        isOpen={isCreateFolderModalOpen}
+        onClose={() => setIsCreateFolderModalOpen(false)}
+        onSubmit={handleSubmitCreateFolder}
+      />
+      <EditFolderModal
+        isOpen={isEditFolderModalOpen}
+        onClose={() => {
+          setIsEditFolderModalOpen(false);
+          setFolderToEdit(null);
+        }}
+        onSubmit={handleUpdateFolder}
+        folder={folderToEdit}
+      />
+      <ConfirmDialog
+        isOpen={isDeleteFolderDialogOpen}
+        onClose={() => {
+          setIsDeleteFolderDialogOpen(false);
+          setFolderToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteFolder}
+        title="Delete Folder"
+        message={`Are you sure you want to delete "${folderToDelete?.name}"? This will permanently delete all test files and test runs in this folder.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={isDeletingFolder}
+      />
+      {/* Test File Modals */}
+      <CreateTestFileModal
+        isOpen={isCreateTestFileModalOpen}
+        onClose={() => {
+          setIsCreateTestFileModalOpen(false);
+          setFolderForNewTestFile(null);
+        }}
+        onSubmit={handleSubmitCreateTestFile}
+        folderName={folderForNewTestFile?.name || ""}
+      />
+      <EditTestFileModal
+        isOpen={isEditTestFileModalOpen}
+        onClose={() => {
+          setIsEditTestFileModalOpen(false);
+          setTestFileToEdit(null);
+        }}
+        onSubmit={handleUpdateTestFile}
+        testFile={testFileToEdit}
+      />
+      <ConfirmDialog
+        isOpen={isDeleteTestFileDialogOpen}
+        onClose={() => {
+          setIsDeleteTestFileDialogOpen(false);
+          setTestFileToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteTestFile}
+        title="Delete Test File"
+        message={`Are you sure you want to delete "${testFileToDelete?.name}"? This will permanently delete all test steps and test runs for this file.`}
+        confirmLabel="Delete"
+        variant="danger"
+        isLoading={isDeletingTestFile}
       />
     </div>
   );

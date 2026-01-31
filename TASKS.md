@@ -182,16 +182,16 @@
 > - Folders are NOT nestable (one level only)
 
 ### Task 1.5.1: Create Folder
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] POST /projects/:projectId/folders endpoint
-- [ ] Validate: name (required)
-- [ ] Verify user owns the project
+- [x] POST /projects/:projectId/folders endpoint
+- [x] Validate: name (required)
+- [x] Verify user owns the project
 
 **Frontend Integration:**
-- [ ] Connect "Create Folder" button to API
-- [ ] Show folder in sidebar after creation
+- [x] Connect "Create Folder" button to API
+- [x] Show folder in sidebar after creation
 
 **Verification:**
 - [ ] Can create folder from frontend
@@ -200,15 +200,15 @@
 ---
 
 ### Task 1.5.2: List Folders
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] GET /projects/:projectId/folders endpoint
-- [ ] Include test file count per folder
+- [x] GET /projects/:projectId/folders endpoint
+- [x] Include test file count per folder
 
 **Frontend Integration:**
-- [ ] Fetch folders when project is selected
-- [ ] Display in sidebar as expandable tree
+- [x] Fetch folders when project is selected
+- [x] Display in sidebar as expandable tree
 
 **Verification:**
 - [ ] Folders load for selected project
@@ -217,14 +217,14 @@
 ---
 
 ### Task 1.5.3: Update Folder
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] PATCH /folders/:id endpoint
-- [ ] Verify ownership
+- [x] PATCH /folders/:id endpoint
+- [x] Verify ownership
 
 **Frontend Integration:**
-- [ ] Connect rename functionality to API
+- [x] Connect rename functionality to API
 
 **Verification:**
 - [ ] Can rename folder
@@ -233,16 +233,16 @@
 ---
 
 ### Task 1.5.4: Delete Folder
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] DELETE /folders/:id endpoint
-- [ ] Cascade delete test files, steps, runs
+- [x] DELETE /folders/:id endpoint
+- [x] Cascade delete test files, steps, runs
 
 **Frontend Integration:**
-- [ ] Connect delete button to API
-- [ ] Show confirmation dialog
-- [ ] Update sidebar after deletion
+- [x] Connect delete button to API
+- [x] Show confirmation dialog
+- [x] Update sidebar after deletion
 
 **Verification:**
 - [ ] Can delete folder
@@ -256,16 +256,16 @@
 > **Note:** Test files belong to Folders, not directly to Projects.
 
 ### Task 2.1: Create Test File
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] POST /folders/:folderId/tests endpoint
-- [ ] Validate: name (required), description (optional)
-- [ ] Verify user owns the folder's project
+- [x] POST /folders/:folderId/tests endpoint
+- [x] Validate: name (required), description (optional)
+- [x] Verify user owns the folder's project
 
 **Frontend Integration:**
-- [ ] Connect "Create Test" button to API
-- [ ] Refresh test list after creation
+- [x] Connect "Create Test" button to API
+- [x] Refresh test list after creation
 
 **Verification:**
 - [ ] Can create test file from frontend
@@ -274,15 +274,15 @@
 ---
 
 ### Task 2.2: List Test Files
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] GET /folders/:folderId/tests endpoint
-- [ ] Include step count and last run status
+- [x] GET /folders/:folderId/tests endpoint
+- [x] Include step count and last run status
 
 **Frontend Integration:**
-- [ ] Fetch test files when folder is selected
-- [ ] Display in test list
+- [x] Fetch test files when folder is selected
+- [x] Display in test list
 
 **Verification:**
 - [ ] Test files load for selected folder
@@ -291,17 +291,17 @@
 ---
 
 ### Task 2.3: Get Test File Details
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] GET /tests/:id endpoint
-- [ ] Include all steps with full details
-- [ ] Include recent runs summary
+- [x] GET /tests/:id endpoint
+- [x] Include all steps with full details
+- [x] Include recent runs summary
 
 **Frontend Integration:**
-- [ ] Fetch test details on test file page
-- [ ] Populate Story Mode table with steps
-- [ ] Populate Block Mode with steps
+- [x] Fetch test details on test file page
+- [x] Populate Story Mode table with steps
+- [x] Populate Block Mode with steps
 
 **Verification:**
 - [ ] Test details page loads correctly
@@ -311,14 +311,14 @@
 ---
 
 ### Task 2.4: Update Test File
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] PATCH /tests/:id endpoint
-- [ ] Verify ownership
+- [x] PATCH /tests/:id endpoint
+- [x] Verify ownership
 
 **Frontend Integration:**
-- [ ] Connect edit functionality to API
+- [x] Connect edit functionality to API
 
 **Verification:**
 - [ ] Can rename test file
@@ -327,15 +327,15 @@
 ---
 
 ### Task 2.5: Delete Test File
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] DELETE /tests/:id endpoint
-- [ ] Cascade delete steps and runs
+- [x] DELETE /tests/:id endpoint
+- [x] Cascade delete steps and runs
 
 **Frontend Integration:**
-- [ ] Connect delete button to API
-- [ ] Update UI after deletion
+- [x] Connect delete button to API
+- [x] Update UI after deletion
 
 **Verification:**
 - [ ] Can delete test file
@@ -650,8 +650,8 @@
 |-------|-------|--------|
 | Phase 0: Setup | 3 tasks | COMPLETE ✓ |
 | Phase 1: Projects | 5 tasks | 5/5 COMPLETE ✓ |
-| Phase 1.5: Folders | 4 tasks | NOT STARTED |
-| Phase 2: Test Files | 5 tasks | NOT STARTED |
+| Phase 1.5: Folders | 4 tasks | 4/4 COMPLETE ✓ |
+| Phase 2: Test Files | 5 tasks | 5/5 COMPLETE ✓ |
 | Phase 3: Steps | 4 tasks | NOT STARTED |
 | Phase 4: Recording | 4 tasks | NOT STARTED |
 | Phase 5: Execution | 5 tasks | NOT STARTED |
