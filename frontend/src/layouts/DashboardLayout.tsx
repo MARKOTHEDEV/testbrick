@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { TestBrickLogo } from "@/components/ui/testbrick-logo";
+import { UserMenu } from "@/components/user-menu";
 import {
   Search,
   Bell,
@@ -49,18 +50,8 @@ const DashboardTopBar = () => {
           </span>
         </div>
 
-        {/* User Avatar & Info */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center size-[46px]  rounded-full border border-[#e5e5e5]">
-            <span className="text-[#1f2937] font-semibold text-base font-inter tracking-[0.08px]">
-              A
-            </span>
-          </div>
-          <div className="flex flex-col text-[#667085] capitalize">
-            <span className="text-base">odeleye. o</span>
-            <span className="text-xs">free account</span>
-          </div>
-        </div>
+        {/* User Menu */}
+        <UserMenu />
       </div>
     </header>
   );

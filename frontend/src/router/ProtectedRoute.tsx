@@ -1,16 +1,20 @@
-import { Outlet } from "react-router-dom";
-// import { Navigate, useLocation } from "react-router-dom";
-// import { useAuth } from "@/hooks/useAuth";
+import { Outlet, Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "@clerk/clerk-react";
+import UiLoader from "@/components/ui/UiLoader";
 
 const ProtectedRoute = () => {
-  // TODO: Re-enable auth check when ready
-  // const { isAuthenticated } = useAuth();
-  // const location = useLocation();
+  const { isSignedIn, isLoaded } = useAuth();
+  const location = useLocation();
 
-  // if (!isAuthenticated) {
-  //   // Redirect to login while saving the attempted URL
-  //   return <Navigate to="/auth/login" state={{ from: location }} replace />;
-  // }
+  // Show loading state while Clerk initializes
+  if (!isLoaded) {
+    return <UiLoader text="Loading..." />;
+  }
+
+  if (!isSignedIn) {
+    // Redirect to login while saving the attempted URL
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
+  }
 
   return <Outlet />;
 };

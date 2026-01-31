@@ -1,24 +1,121 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useSignIn, useSignUp } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
 import { TestBrickLogo } from "@/components/ui/testbrick-logo";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 const AuthPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isLogin = location.pathname === "/auth/login";
+
+  const { signIn, setActive: setSignInActive, isLoaded: isSignInLoaded } = useSignIn();
+  const { signUp, setActive: setSignUpActive, isLoaded: isSignUpLoaded } = useSignUp();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleOAuthSignIn = async (provider: "oauth_google" | "oauth_github") => {
+    if (!isSignInLoaded || !signIn) return;
+
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: provider,
+        redirectUrl: "/auth/sso-callback",
+        redirectUrlComplete: "/dashboard",
+      });
+    } catch (err) {
+      console.error("OAuth error:", err);
+      setError("Failed to connect with provider. Please try again.");
+    }
+  };
+
+  const handleOAuthSignUp = async (provider: "oauth_google" | "oauth_github") => {
+    if (!isSignUpLoaded || !signUp) return;
+
+    try {
+      await signUp.authenticateWithRedirect({
+        strategy: provider,
+        redirectUrl: "/auth/sso-callback",
+        redirectUrlComplete: "/dashboard",
+      });
+    } catch (err) {
+      console.error("OAuth error:", err);
+      setError("Failed to connect with provider. Please try again.");
+    }
+  };
+
+  const handleSocialLogin = (provider: "oauth_google" | "oauth_github") => {
+    if (isLogin) {
+      handleOAuthSignIn(provider);
+    } else {
+      handleOAuthSignUp(provider);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    // TODO: Connect to Clerk or your auth provider
-    console.log({ email, password });
-    setTimeout(() => setIsLoading(false), 1000);
+    setError(null);
+
+    try {
+      if (isLogin) {
+        // Sign In flow
+        if (!isSignInLoaded || !signIn) {
+          throw new Error("Sign in not loaded");
+        }
+
+        const result = await signIn.create({
+          identifier: email,
+          password,
+        });
+
+        if (result.status === "complete") {
+          await setSignInActive({ session: result.createdSessionId });
+          navigate("/dashboard");
+        } else {
+          console.log("Sign in requires additional steps:", result);
+          setError("Additional verification required. Please check your email.");
+        }
+      } else {
+        // Sign Up flow
+        if (!isSignUpLoaded || !signUp) {
+          throw new Error("Sign up not loaded");
+        }
+
+        const result = await signUp.create({
+          emailAddress: email,
+          password,
+        });
+
+        if (result.status === "complete") {
+          await setSignUpActive({ session: result.createdSessionId });
+          navigate("/dashboard");
+        } else if (result.status === "missing_requirements") {
+          // Email verification needed
+          await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+          // TODO: Show email verification UI
+          setError("Please check your email to verify your account.");
+        } else {
+          console.log("Sign up requires additional steps:", result);
+          setError("Additional steps required. Please try again.");
+        }
+      }
+    } catch (err: unknown) {
+      console.error("Auth error:", err);
+      const clerkError = err as { errors?: Array<{ message: string }> };
+      if (clerkError.errors && clerkError.errors.length > 0) {
+        setError(clerkError.errors[0].message);
+      } else {
+        setError(isLogin ? "Invalid email or password" : "Failed to create account");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -87,11 +184,19 @@ const AuthPage = () => {
               </p>
             </div>
 
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-jakarta">
+                {error}
+              </div>
+            )}
+
             {/* Social Login Buttons */}
             <div className="space-y-3 mb-6">
               {/* Google Button */}
               <button
                 type="button"
+                onClick={() => handleSocialLogin("oauth_google")}
                 className="w-full h-11 px-4 rounded-lg border border-border bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-3 font-jakarta text-sm font-medium text-foreground"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -118,6 +223,7 @@ const AuthPage = () => {
               {/* GitHub Button */}
               <button
                 type="button"
+                onClick={() => handleSocialLogin("oauth_github")}
                 className="w-full h-11 px-4 rounded-lg border border-border bg-white hover:bg-gray-50 transition-colors flex items-center justify-center gap-3 font-jakarta text-sm font-medium text-foreground"
               >
                 <svg

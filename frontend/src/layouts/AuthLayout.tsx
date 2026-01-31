@@ -1,11 +1,17 @@
 import { Outlet, Navigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@clerk/clerk-react";
+import UiLoader from "@/components/ui/UiLoader";
 
 const AuthLayout = () => {
-  const { isAuthenticated } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
+
+  // Show loading state while Clerk initializes
+  if (!isLoaded) {
+    return <UiLoader text="Loading..." />;
+  }
 
   // Redirect to dashboard if already logged in
-  if (isAuthenticated) {
+  if (isSignedIn) {
     return <Navigate to="/dashboard" replace />;
   }
 

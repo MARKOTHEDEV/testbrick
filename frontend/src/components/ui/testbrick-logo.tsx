@@ -1,11 +1,13 @@
 interface TestBrickLogoProps {
   className?: string;
   size?: number;
+  animate?: boolean;
 }
 
 export const TestBrickLogo = ({
   className = "",
   size = 32,
+  animate = false,
 }: TestBrickLogoProps) => (
   <svg
     width={size}
@@ -14,7 +16,33 @@ export const TestBrickLogo = ({
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     className={className}
+    style={
+      animate
+        ? {
+            animation: "brick-spin 3s ease-in-out infinite",
+            transformOrigin: "center center",
+          }
+        : undefined
+    }
   >
+    <style>
+      {`
+        @keyframes brick-spin {
+          0%, 100% {
+            transform: rotateY(0deg) rotateX(0deg);
+          }
+          25% {
+            transform: rotateY(15deg) rotateX(5deg);
+          }
+          50% {
+            transform: rotateY(0deg) rotateX(0deg);
+          }
+          75% {
+            transform: rotateY(-15deg) rotateX(-5deg);
+          }
+        }
+      `}
+    </style>
     <path
       d="M10.1738 2.3247C10.7024 2.02587 10.9667 1.87646 11.257 1.87646C11.5472 1.87646 11.8116 2.02587 12.3402 2.3247L18.6165 5.87253C19.1451 6.17136 19.4095 6.32078 19.5546 6.56687C19.6997 6.81297 19.6997 7.1118 19.6997 7.70945V14.8051C19.6997 15.4028 19.6997 15.7016 19.5546 15.9477C19.4095 16.1937 19.1451 16.3432 18.6165 16.6421L12.3402 20.1899C11.8116 20.4887 11.5472 20.6381 11.257 20.6381C10.9667 20.6381 10.7024 20.4887 10.1738 20.1899L3.89745 16.6421C3.36881 16.3432 3.10449 16.1937 2.95936 15.9477C2.81424 15.7016 2.81424 15.4028 2.81424 14.8051V7.70945C2.81424 7.1118 2.81424 6.81297 2.95936 6.56687C3.10449 6.32078 3.36881 6.17136 3.89745 5.87253L10.1738 2.3247Z"
       stroke="currentColor"

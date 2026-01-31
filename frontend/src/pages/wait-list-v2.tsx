@@ -1,16 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TestBrickLogo } from "@/components/ui/testbrick-logo";
-import {
-  Video,
-  Share2,
-  CheckCircle2,
-  Zap,
-  Bug,
-  Users,
-  ArrowRight,
-  Loader2,
-} from "lucide-react";
+import { Zap, Bug, Users, ArrowRight, Loader2, CheckCircle2 } from "lucide-react";
 
 // Blocked email domains
 const DISPOSABLE_DOMAINS = [
@@ -121,33 +112,6 @@ const WaitListV2 = () => {
       setIsLoading(false);
     }
   };
-
-  const features = [
-    {
-      icon: Video,
-      title: "Record, Don't Write",
-      description:
-        "No Selenium. No Cypress. No Playwright. Just click record and do what you normally do — TestBrick captures everything.",
-    },
-    {
-      icon: Share2,
-      title: "Share & Reproduce",
-      description:
-        "Generate shareable reports with screenshots, steps, URLs, and errors. Devs see exactly what you saw.",
-    },
-    {
-      icon: CheckCircle2,
-      title: "One-Click Verify",
-      description:
-        "When the fix is ready, hit 'Verify Fix' to replay the exact steps. Confirm it works before it ships.",
-    },
-    {
-      icon: Zap,
-      title: "Zero Learning Curve",
-      description:
-        "If you can use a browser, you can use TestBrick. No scripting skills needed — just record and share.",
-    },
-  ];
 
   const audiences = [
     { icon: Bug, label: "QA Engineers" },

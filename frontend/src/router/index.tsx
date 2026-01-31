@@ -6,20 +6,20 @@ import RootLayout from "@/layouts/RootLayout";
 import AuthLayout from "@/layouts/AuthLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import ProtectedRoute from "./ProtectedRoute";
+import UiLoader from "@/components/ui/UiLoader";
 
 // Lazy load pages for better performance
 const AuthPage = lazy(() => import("@/pages/auth"));
+const AuthCallback = lazy(() => import("@/pages/auth-callback"));
 const WaitListPage = lazy(() => import("@/pages/wait-list-v2"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
-const TestFileDetailPage = lazy(() => import("@/pages/dashboard/test-file-detail"));
+const TestFileDetailPage = lazy(
+  () => import("@/pages/dashboard/test-file-detail"),
+);
 const TestSharePage = lazy(() => import("@/pages/test-share"));
 
 // Loading fallback
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="animate-pulse text-muted-foreground">Loading...</div>
-  </div>
-);
+const PageLoader = () => <UiLoader text="Loading..." />;
 
 // Wrap lazy components with Suspense
 const withSuspense = (
@@ -69,6 +69,10 @@ export const router = createBrowserRouter([
           {
             path: "/auth/forgot-password",
             element: withSuspense(AuthPage),
+          },
+          {
+            path: "/auth/sso-callback",
+            element: withSuspense(AuthCallback),
           },
         ],
       },

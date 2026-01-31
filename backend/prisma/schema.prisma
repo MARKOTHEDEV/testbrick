@@ -1,0 +1,179 @@
+// TestBloc Database Schema
+// No-code browser testing platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User model - synced from Clerk via webhook
+model User {
+  id        String   @id // Clerk user ID
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects Project[]
+}
+
+// Project - a testing project with a base URL
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  baseUrl     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  testFiles TestFile[]
+
+  @@index([userId])
+}
+
+// TestFile - a collection of test steps
+model TestFile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  steps    TestStep[]
+  testRuns TestRun[]
+
+  @@index([projectId])
+}
+
+// TestStep - individual step in a test
+// Uses LocatorBundle approach for reliable element targeting
+model TestStep {
+  id          String @id @default(cuid())
+  stepNumber  Int
+  action      String // click, fill, navigate, assert, etc.
+  description String
+  value       String? // Input value for fill actions, URL for navigate, etc.
+
+  // LocatorBundle - multiple locator strategies stored as JSON
+  // Priority order: qaId > testId > ariaLabel > roleWithName > cssSelector > xpath
+  locators Json? // { qaId?, testId?, ariaLabel?, roleWithName?, cssSelector?, xpath? }
+
+  // Screenshot of the element (optional, for visual reference)
+  elementScreenshot String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  testFileId String
+  testFile   TestFile @relation(fields: [testFileId], references: [id], onDelete: Cascade)
+
+  stepResults StepResult[]
+
+  @@index([testFileId])
+  @@index([testFileId, stepNumber])
+}
+
+// TestRun - an execution of a test file
+model TestRun {
+  id        String        @id @default(cuid())
+  status    TestRunStatus @default(PENDING)
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  // Video recording URL (Cloudinary)
+  videoUrl String?
+
+  // Share token for public access
+  shareToken String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  testFileId String
+  testFile   TestFile @relation(fields: [testFileId], references: [id], onDelete: Cascade)
+
+  stepResults StepResult[]
+  errors      TestError[]
+
+  @@index([testFileId])
+  @@index([shareToken])
+}
+
+enum TestRunStatus {
+  PENDING
+  RUNNING
+  PASSED
+  FAILED
+  CANCELLED
+}
+
+// StepResult - result of executing a single step
+model StepResult {
+  id        String           @id @default(cuid())
+  status    StepResultStatus
+  duration  Int? // Duration in milliseconds
+  error     String? // Error message if failed
+
+  // Screenshot URL (Cloudinary)
+  screenshotUrl String?
+
+  // Which locator was successfully used
+  locatorUsed String?
+
+  createdAt DateTime @default(now())
+
+  testRunId String
+  testRun   TestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+
+  testStepId String
+  testStep   TestStep @relation(fields: [testStepId], references: [id], onDelete: Cascade)
+
+  @@index([testRunId])
+  @@index([testStepId])
+}
+
+enum StepResultStatus {
+  PENDING
+  RUNNING
+  PASSED
+  FAILED
+  SKIPPED
+}
+
+// TestError - errors captured during test run
+model TestError {
+  id        String        @id @default(cuid())
+  type      TestErrorType
+  message   String
+  stack     String?
+  url       String? // Page URL where error occurred
+  timestamp DateTime      @default(now())
+
+  // Additional context stored as JSON
+  context Json?
+
+  testRunId String
+  testRun   TestRun @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+
+  @@index([testRunId])
+}
+
+enum TestErrorType {
+  CONSOLE_ERROR
+  NETWORK_ERROR
+  ASSERTION_ERROR
+  TIMEOUT_ERROR
+  ELEMENT_NOT_FOUND
+  OTHER
+}
