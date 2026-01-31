@@ -63,7 +63,7 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   _count: {
-    testFiles: number;
+    folders: number;
   };
 }
 
@@ -71,4 +71,10 @@ export interface CreateProjectInput {
   name: string;
   description?: string;
   baseUrl: string;
+}
+
+export interface UpdateProjectInput {
+  name?: string;
+  description?: string;
+  baseUrl?: string;
 }

@@ -18,7 +18,7 @@ const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="block text-sm font-medium text-[#1f2937] mb-1.5"
+            className="block text-[14px] font-normal text-[#6e7079] mb-2 capitalize"
           >
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}
@@ -28,10 +28,10 @@ const FormTextarea = forwardRef<HTMLTextAreaElement, FormTextareaProps>(
           id={textareaId}
           ref={ref}
           className={cn(
-            "w-full px-3 py-2.5 bg-[#f9f9f9] border rounded-lg text-sm text-[#1f2937] placeholder:text-[#667085] outline-none transition-colors resize-none",
-            "focus:border-primary focus:ring-1 focus:ring-primary",
+            "w-full min-h-[50px] px-[23px] py-[13px] bg-[#fafafa] rounded-[8px] text-[14px] text-black placeholder:text-[#667085] outline-none transition-colors resize-none",
+            "focus:ring-2 focus:ring-primary/20",
             "disabled:opacity-50 disabled:cursor-not-allowed",
-            error ? "border-red-500" : "border-border",
+            error && "ring-2 ring-red-500/20",
             className
           )}
           aria-invalid={error ? "true" : "false"}

@@ -81,53 +81,56 @@
 ## Phase 1: Projects CRUD
 
 ### Task 1.1: Create Project
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] POST /projects endpoint
-- [ ] Validate: name (required), description (optional), baseUrl (required)
-- [ ] Associate with authenticated user
+- [x] POST /projects endpoint
+- [x] Validate: name (required), description (optional), baseUrl (required)
+- [x] Associate with authenticated user
+- [x] AuthService.ensureUserExists() handles webhook race condition
 
 **Frontend Integration:**
-- [ ] Connect "Create Project" modal/form to API
-- [ ] Show success/error feedback
-- [ ] Refresh project list after creation
+- [x] Connect "Create Project" modal/form to API
+- [x] Show success/error feedback
+- [x] Refresh project list after creation
+- [x] react-hook-form + yup validation
+- [x] Reusable FormInput/FormTextarea components
 
 **Verification:**
-- [ ] Can create project from frontend
-- [ ] Project appears in database
-- [ ] Project appears in UI list
+- [x] Can create project from frontend
+- [x] Project appears in database
+- [x] Project appears in UI list
 
 ---
 
 ### Task 1.2: List Projects
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] GET /projects endpoint
-- [ ] Return only current user's projects
-- [ ] Include test file count per project
+- [x] GET /projects endpoint
+- [x] Return only current user's projects
+- [x] Include folder count per project
 
 **Frontend Integration:**
-- [ ] Fetch projects on dashboard load
-- [ ] Display in sidebar/project list
+- [x] Fetch projects on dashboard load
+- [x] Display in sidebar/project list
 
 **Verification:**
-- [ ] Projects load on dashboard
-- [ ] Only shows current user's projects
+- [x] Projects load on dashboard
+- [x] Only shows current user's projects
 
 ---
 
 ### Task 1.3: Update Project
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] PATCH /projects/:id endpoint
-- [ ] Verify ownership before update
+- [x] PATCH /projects/:id endpoint
+- [x] Verify ownership before update
 
 **Frontend Integration:**
-- [ ] Connect "Edit Project" form to API
-- [ ] Update UI after successful edit
+- [x] Connect "Edit Project" form to API
+- [x] Update UI after successful edit
 
 **Verification:**
 - [ ] Can edit project name/description/baseUrl
@@ -136,17 +139,17 @@
 ---
 
 ### Task 1.4: Delete Project
-**Status:** NOT STARTED
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] DELETE /projects/:id endpoint
-- [ ] Verify ownership before delete
-- [ ] Cascade delete test files, steps, runs
+- [x] DELETE /projects/:id endpoint
+- [x] Verify ownership before delete
+- [x] Cascade delete folders, test files, steps, runs
 
 **Frontend Integration:**
-- [ ] Connect "Delete Project" button to API
-- [ ] Show confirmation dialog
-- [ ] Remove from UI after deletion
+- [x] Connect "Delete Project" button to API
+- [x] Show confirmation dialog
+- [x] Remove from UI after deletion
 
 **Verification:**
 - [ ] Can delete project
@@ -155,15 +158,110 @@
 
 ---
 
+### Task 1.5: Project Switcher Dropdown
+**Status:** COMPLETE ✓
+
+**Frontend Integration:**
+- [x] Add dropdown in top bar to switch between projects
+- [x] Show current project name
+- [x] List all user's projects
+- [x] Option to create new project from dropdown
+- [x] Persist selected project (localStorage or URL)
+
+**Verification:**
+- [x] Can switch between projects from dropdown
+- [x] Selected project persists on refresh
+- [x] Creating new project from dropdown works
+
+---
+
+## Phase 1.5: Folders CRUD
+
+> **Architecture Note:** Projects contain Folders, and Folders contain Test Files.
+> - Files MUST be inside a folder (no root-level files)
+> - Folders are NOT nestable (one level only)
+
+### Task 1.5.1: Create Folder
+**Status:** NOT STARTED
+
+**Backend:**
+- [ ] POST /projects/:projectId/folders endpoint
+- [ ] Validate: name (required)
+- [ ] Verify user owns the project
+
+**Frontend Integration:**
+- [ ] Connect "Create Folder" button to API
+- [ ] Show folder in sidebar after creation
+
+**Verification:**
+- [ ] Can create folder from frontend
+- [ ] Folder appears in project sidebar
+
+---
+
+### Task 1.5.2: List Folders
+**Status:** NOT STARTED
+
+**Backend:**
+- [ ] GET /projects/:projectId/folders endpoint
+- [ ] Include test file count per folder
+
+**Frontend Integration:**
+- [ ] Fetch folders when project is selected
+- [ ] Display in sidebar as expandable tree
+
+**Verification:**
+- [ ] Folders load for selected project
+- [ ] Shows correct file count
+
+---
+
+### Task 1.5.3: Update Folder
+**Status:** NOT STARTED
+
+**Backend:**
+- [ ] PATCH /folders/:id endpoint
+- [ ] Verify ownership
+
+**Frontend Integration:**
+- [ ] Connect rename functionality to API
+
+**Verification:**
+- [ ] Can rename folder
+- [ ] Changes persist
+
+---
+
+### Task 1.5.4: Delete Folder
+**Status:** NOT STARTED
+
+**Backend:**
+- [ ] DELETE /folders/:id endpoint
+- [ ] Cascade delete test files, steps, runs
+
+**Frontend Integration:**
+- [ ] Connect delete button to API
+- [ ] Show confirmation dialog
+- [ ] Update sidebar after deletion
+
+**Verification:**
+- [ ] Can delete folder
+- [ ] All related test files deleted
+- [ ] UI updates correctly
+
+---
+
 ## Phase 2: Test Files CRUD
+
+> **Note:** Test files belong to Folders, not directly to Projects.
 
 ### Task 2.1: Create Test File
 **Status:** NOT STARTED
 
 **Backend:**
-- [ ] POST /projects/:projectId/tests endpoint
+- [ ] POST /folders/:folderId/tests endpoint
 - [ ] Validate: name (required), description (optional)
-- [ ] Verify user owns the project
+- [ ] Verify user owns the folder's project
 
 **Frontend Integration:**
 - [ ] Connect "Create Test" button to API
@@ -171,7 +269,7 @@
 
 **Verification:**
 - [ ] Can create test file from frontend
-- [ ] Test file appears in project
+- [ ] Test file appears in folder
 
 ---
 
@@ -179,15 +277,15 @@
 **Status:** NOT STARTED
 
 **Backend:**
-- [ ] GET /projects/:projectId/tests endpoint
+- [ ] GET /folders/:folderId/tests endpoint
 - [ ] Include step count and last run status
 
 **Frontend Integration:**
-- [ ] Fetch test files when project is selected
+- [ ] Fetch test files when folder is selected
 - [ ] Display in test list
 
 **Verification:**
-- [ ] Test files load for selected project
+- [ ] Test files load for selected folder
 - [ ] Shows correct step count and status
 
 ---
@@ -551,14 +649,15 @@
 | Phase | Tasks | Status |
 |-------|-------|--------|
 | Phase 0: Setup | 3 tasks | COMPLETE ✓ |
-| Phase 1: Projects | 4 tasks | NOT STARTED |
+| Phase 1: Projects | 5 tasks | 5/5 COMPLETE ✓ |
+| Phase 1.5: Folders | 4 tasks | NOT STARTED |
 | Phase 2: Test Files | 5 tasks | NOT STARTED |
 | Phase 3: Steps | 4 tasks | NOT STARTED |
 | Phase 4: Recording | 4 tasks | NOT STARTED |
 | Phase 5: Execution | 5 tasks | NOT STARTED |
 | Phase 6: Share | 3 tasks | NOT STARTED |
 
-**Total: 28 tasks**
+**Total: 33 tasks**
 
 ---
 
@@ -568,3 +667,18 @@
 - Phases can sometimes overlap (e.g., Phase 1 & 2 are both CRUD)
 - Phase 4 (Recording) and Phase 5 (Execution) are the core features
 - Always test with real frontend integration before marking complete
+
+## Architecture
+
+```
+Project (has baseUrl)
+├── Folder (just a name)
+│   └── TestFile (has steps)
+├── Folder
+│   └── TestFile
+```
+
+- **Projects** have a name, description, and baseUrl
+- **Folders** organize test files within a project (no nesting allowed)
+- **Test Files** must belong to a folder (no root-level files)
+- **Project Switcher** dropdown in top bar allows switching between projects

@@ -6,7 +6,7 @@ import { Loader2 } from "lucide-react";
 import { FormInput } from "@/components/ui/form-input";
 import { FormTextarea } from "@/components/ui/form-textarea";
 import { Modal } from "@/components/ui/modal";
-import type { CreateProjectInput } from "@/lib/api";
+import type { Project, UpdateProjectInput } from "@/lib/api";
 
 interface FormData {
   name: string;
@@ -29,17 +29,19 @@ const schema: yup.ObjectSchema<FormData> = yup.object({
     .max(500, "Description must be less than 500 characters"),
 });
 
-interface CreateProjectModalProps {
+interface EditProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateProjectInput) => Promise<void>;
+  onSubmit: (data: UpdateProjectInput) => Promise<void>;
+  project: Project | null;
 }
 
-const CreateProjectModal = ({
+const EditProjectModal = ({
   isOpen,
   onClose,
   onSubmit,
-}: CreateProjectModalProps) => {
+  project,
+}: EditProjectModalProps) => {
   const {
     register,
     handleSubmit,
@@ -55,12 +57,16 @@ const CreateProjectModal = ({
     },
   });
 
-  // Reset form when modal closes
+  // Populate form when project changes or modal opens
   useEffect(() => {
-    if (!isOpen) {
-      reset();
+    if (isOpen && project) {
+      reset({
+        name: project.name,
+        baseUrl: project.baseUrl,
+        description: project.description || "",
+      });
     }
-  }, [isOpen, reset]);
+  }, [isOpen, project, reset]);
 
   const onFormSubmit = async (data: FormData) => {
     try {
@@ -69,18 +75,16 @@ const CreateProjectModal = ({
         baseUrl: data.baseUrl.trim(),
         description: data.description?.trim() || undefined,
       });
-      reset();
       onClose();
     } catch (err) {
       setError("root", {
-        message: err instanceof Error ? err.message : "Failed to create project",
+        message: err instanceof Error ? err.message : "Failed to update project",
       });
     }
   };
 
   const handleClose = () => {
     if (!isSubmitting) {
-      reset();
       onClose();
     }
   };
@@ -89,8 +93,8 @@ const CreateProjectModal = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="create project"
-      subtitle="fill details to create your project"
+      title="edit project"
+      subtitle="update your project details"
       disabled={isSubmitting}
     >
       <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-[18px]">
@@ -147,10 +151,10 @@ const CreateProjectModal = ({
             {isSubmitting ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                Creating...
+                Updating...
               </>
             ) : (
-              "Save"
+              "Save Changes"
             )}
           </button>
         </div>
@@ -159,4 +163,4 @@ const CreateProjectModal = ({
   );
 };
 
-export default CreateProjectModal;
+export default EditProjectModal;
