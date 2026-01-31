@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { ProjectsModule } from './projects/projects.module';
 import { FoldersModule } from './folders/folders.module';
 import { TestFilesModule } from './test-files/test-files.module';
+import { TestRunsModule } from './test-runs/test-runs.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TestFilesModule } from './test-files/test-files.module';
     ProjectsModule,
     FoldersModule,
     TestFilesModule,
+    TestRunsModule,
   ],
   controllers: [AppController],
   providers: [],

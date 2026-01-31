@@ -10,6 +10,7 @@ import CreateTestFileModal from "@/components/CreateTestFileModal";
 import EditTestFileModal from "@/components/EditTestFileModal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useApi } from "@/hooks/useApi";
+import { ProjectProvider } from "@/contexts/ProjectContext";
 import type {
   Project,
   CreateProjectInput,
@@ -974,7 +975,9 @@ const DashboardLayout = () => {
           onDeleteTestFile={handleDeleteTestFile}
         />
         <main className="flex-1 overflow-auto">
-          <Outlet />
+          <ProjectProvider value={{ selectedProject, setSelectedProject }}>
+            <Outlet />
+          </ProjectProvider>
         </main>
       </div>
       <CreateProjectModal

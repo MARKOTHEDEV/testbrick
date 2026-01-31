@@ -1,8 +1,18 @@
 import { useParams } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import TestFile from "@/components/TestFile";
 import { useApi } from "@/hooks/useApi";
 import UiLoader from "@/components/ui/UiLoader";
+
+export interface TestStep {
+  id: string;
+  stepNumber: number;
+  action: string;
+  description: string;
+  value: string | null;
+  locators: unknown;
+  elementScreenshot: string | null;
+}
 
 interface TestFileData {
   id: string;
@@ -11,15 +21,7 @@ interface TestFileData {
   folderId: string;
   createdAt: string;
   updatedAt: string;
-  steps: Array<{
-    id: string;
-    stepNumber: number;
-    action: string;
-    description: string;
-    value: string | null;
-    locators: unknown;
-    elementScreenshot: string | null;
-  }>;
+  steps: TestStep[];
   testRuns: Array<{
     id: string;
     status: string;
@@ -40,26 +42,27 @@ const TestFileDetailPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchTestFile = async () => {
-      if (!fileId) return;
+  const fetchTestFile = useCallback(async () => {
+    if (!fileId) return;
 
+    try {
+      const data = await authFetch<TestFileData>(`/tests/${fileId}`);
+      setTestFile(data);
+    } catch (err) {
+      console.error("Failed to fetch test file:", err);
+      setError(err instanceof Error ? err.message : "Failed to load test file");
+    }
+  }, [fileId, authFetch]);
+
+  useEffect(() => {
+    const loadInitial = async () => {
       setIsLoading(true);
       setError(null);
-
-      try {
-        const data = await authFetch<TestFileData>(`/tests/${fileId}`);
-        setTestFile(data);
-      } catch (err) {
-        console.error("Failed to fetch test file:", err);
-        setError(err instanceof Error ? err.message : "Failed to load test file");
-      } finally {
-        setIsLoading(false);
-      }
+      await fetchTestFile();
+      setIsLoading(false);
     };
-
-    fetchTestFile();
-  }, [fileId, authFetch]);
+    loadInitial();
+  }, [fetchTestFile]);
 
   if (isLoading) {
     return (
@@ -95,7 +98,12 @@ const TestFileDetailPage = () => {
 
   return (
     <div className="h-full">
-      <TestFile fileName={testFile.name} />
+      <TestFile
+        testId={testFile.id}
+        fileName={testFile.name}
+        initialSteps={testFile.steps}
+        onRefresh={fetchTestFile}
+      />
     </div>
   );
 };

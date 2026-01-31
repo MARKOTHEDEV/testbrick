@@ -5,7 +5,7 @@ interface ScreenshotDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   screenshot: {
-    url: string;
+    url: string | null;
     stepNumber: number;
     text: string;
   } | null;
@@ -103,7 +103,7 @@ const ScreenshotDrawer = ({
                 </div>
                 <p className="text-sm text-[#6b7280]">Screenshot Preview</p>
                 <p className="text-xs text-[#9ca3af] mt-1">
-                  {screenshot.url}
+                  {screenshot.url || "No screenshot available"}
                 </p>
               </div>
             </div>

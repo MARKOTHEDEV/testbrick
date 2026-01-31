@@ -86,7 +86,7 @@ const EditableCell = ({
   );
 };
 
-const StatusBadge = ({ status }: { status: "passed" | "failed" }) => {
+const StatusBadge = ({ status }: { status: "passed" | "failed" | "pending" }) => {
   if (status === "passed") {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#dcfce7] text-[#16a34a] text-xs font-medium rounded-full">
@@ -96,17 +96,26 @@ const StatusBadge = ({ status }: { status: "passed" | "failed" }) => {
     );
   }
 
+  if (status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#fee2e2] text-[#dc2626] text-xs font-medium rounded-full">
+        <X className="size-3" />
+        Failed
+      </span>
+    );
+  }
+
+  // pending status
   return (
-    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#fee2e2] text-[#dc2626] text-xs font-medium rounded-full">
-      <X className="size-3" />
-      Failed
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#f4f4f5] text-[#71717a] text-xs font-medium rounded-full">
+      Pending
     </span>
   );
 };
 
 const TestFileStoryMode = ({ steps, onUpdateStep }: TestFileStoryModeProps) => {
   const [selectedScreenshot, setSelectedScreenshot] = useState<{
-    url: string;
+    url: string | null;
     stepNumber: number;
     text: string;
   } | null>(null);

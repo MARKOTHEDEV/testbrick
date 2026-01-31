@@ -19,6 +19,7 @@ import {
 import { TestFilesService } from './test-files.service';
 import { CreateTestFileDto } from './dto/create-test-file.dto';
 import { UpdateTestFileDto } from './dto/update-test-file.dto';
+import { CreateStepDto } from './dto/create-step.dto';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthPayload } from '../auth/decorators/current-user.decorator';
@@ -106,5 +107,58 @@ export class TestFilesController {
       throw new HttpException('Test file not found', HttpStatus.NOT_FOUND);
     }
     return { message: 'Test file deleted successfully' };
+  }
+
+  // ============================================
+  // STEPS ENDPOINTS
+  // ============================================
+
+  @Post('tests/:testId/steps')
+  @ApiOperation({ summary: 'Create a new step for a test file (used by recorder)' })
+  @ApiResponse({ status: 201, description: 'Step created successfully' })
+  @ApiResponse({ status: 404, description: 'Test file not found' })
+  async createStep(
+    @Param('testId') testId: string,
+    @CurrentUser() auth: AuthPayload,
+    @Body() dto: CreateStepDto,
+  ) {
+    const step = await this.testFilesService.createStep(testId, auth.userId, dto);
+    if (!step) {
+      throw new HttpException('Test file not found', HttpStatus.NOT_FOUND);
+    }
+    return step;
+  }
+
+  @Get('tests/:testId/steps')
+  @ApiOperation({ summary: 'Get all steps for a test file' })
+  @ApiResponse({ status: 200, description: 'Returns array of steps' })
+  @ApiResponse({ status: 404, description: 'Test file not found' })
+  async findSteps(
+    @Param('testId') testId: string,
+    @CurrentUser() auth: AuthPayload,
+  ) {
+    const steps = await this.testFilesService.findStepsByTestFile(
+      testId,
+      auth.userId,
+    );
+    if (steps === null) {
+      throw new HttpException('Test file not found', HttpStatus.NOT_FOUND);
+    }
+    return steps;
+  }
+
+  @Delete('steps/:stepId')
+  @ApiOperation({ summary: 'Delete a step' })
+  @ApiResponse({ status: 200, description: 'Step deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Step not found' })
+  async deleteStep(
+    @Param('stepId') stepId: string,
+    @CurrentUser() auth: AuthPayload,
+  ) {
+    const step = await this.testFilesService.deleteStep(stepId, auth.userId);
+    if (!step) {
+      throw new HttpException('Step not found', HttpStatus.NOT_FOUND);
+    }
+    return { message: 'Step deleted successfully' };
   }
 }

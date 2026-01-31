@@ -1,70 +1,182 @@
-import { useState } from "react";
-import { ArrowLeft, Play, MoreHorizontal, Share2 } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowLeft, Play, MoreHorizontal, Share2, Circle, Square, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import TestFileStoryMode from "./TestFileStoryMode";
 import TestFileBlockMode from "./TestFileBlockMode";
 import ShareModal from "./ShareModal";
+import InstallExtensionModal from "@/components/InstallExtensionModal";
+import { useRecorder } from "@/hooks/useRecorder";
+import { useTestRunner, type StepResult } from "@/hooks/useTestRunner";
+import { useProjectOptional } from "@/contexts/ProjectContext";
+import type { TestStep as ApiTestStep } from "@/pages/dashboard/test-file-detail";
 
-// Mock data for test steps
-export const mockTestSteps = [
-  {
-    id: "1",
-    stepNumber: 1,
-    text: "Navigate to login page",
-    expectedResult:
-      "Login page loads successfully with all form elements visible",
-    screenshot: "/screenshots/step-1.png",
-    status: "passed" as const,
-  },
-  {
-    id: "2",
-    stepNumber: 2,
-    text: "Enter valid email address",
-    expectedResult: "Email field accepts input and shows no validation errors",
-    screenshot: "/screenshots/step-2.png",
-    status: "passed" as const,
-  },
-  {
-    id: "3",
-    stepNumber: 3,
-    text: "Enter valid password",
-    expectedResult: "Password field accepts input with masked characters",
-    screenshot: "/screenshots/step-3.png",
-    status: "passed" as const,
-  },
-  {
-    id: "4",
-    stepNumber: 4,
-    text: "Click login button",
-    expectedResult: "User is redirected to dashboard with welcome message",
-    screenshot: "/screenshots/step-4.png",
-    status: "failed" as const,
-  },
-  {
-    id: "5",
-    stepNumber: 5,
-    text: "Verify dashboard elements",
-    expectedResult: "All dashboard widgets and navigation items are visible",
-    screenshot: "/screenshots/step-5.png",
-    status: "passed" as const,
-  },
-];
-
-export type TestStep = (typeof mockTestSteps)[number];
-
-interface TestFileProps {
-  fileName?: string;
+// Display format for steps (used by StoryMode and BlockMode)
+export interface TestStep {
+  id: string;
+  stepNumber: number;
+  text: string;
+  expectedResult: string;
+  screenshot: string | null;
+  status: "passed" | "failed" | "pending";
+  action?: string;
+  value?: string | null;
 }
 
-const TestFile = ({ fileName = "Demo Daten" }: TestFileProps) => {
-  const navigate = useNavigate();
-  const [activeMode, setActiveMode] = useState<"story" | "block">("story");
-  const [steps, setSteps] = useState(mockTestSteps);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+// Convert API step to display format
+function convertApiStepToDisplay(step: ApiTestStep): TestStep {
+  return {
+    id: step.id,
+    stepNumber: step.stepNumber,
+    text: step.description,
+    expectedResult: step.value || "",
+    screenshot: step.elementScreenshot,
+    status: "pending", // Steps are pending until a test run executes them
+    action: step.action,
+    value: step.value,
+  };
+}
 
-  const passedCount = steps.filter((s) => s.status === "passed").length;
-  const failedCount = steps.filter((s) => s.status === "failed").length;
-  const passRate = Math.round((passedCount / steps.length) * 100);
+interface TestFileProps {
+  testId: string;
+  fileName?: string;
+  initialSteps?: ApiTestStep[];
+  onRefresh?: () => Promise<void>;
+}
+
+const POLLING_INTERVAL = 2000; // Poll every 2 seconds during recording
+
+const TestFile = ({
+  testId,
+  fileName = "Test File",
+  initialSteps = [],
+  onRefresh,
+}: TestFileProps) => {
+  const navigate = useNavigate();
+  const projectContext = useProjectOptional();
+  const {
+    isExtensionInstalled,
+    isChecking,
+    recordingState,
+    startRecording,
+    stopRecording,
+    checkExtension,
+  } = useRecorder();
+  const {
+    isRunning,
+    currentRun,
+    progress,
+    stepResults,
+    startRun,
+    cancelRun,
+  } = useTestRunner(testId);
+
+  const [activeMode, setActiveMode] = useState<"story" | "block">("story");
+  const [steps, setSteps] = useState<TestStep[]>(
+    initialSteps.map(convertApiStepToDisplay)
+  );
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const isRecordingThisTest = recordingState.isRecording && recordingState.testId === testId;
+
+  // Helper to convert step result status to display status
+  const getStepStatus = (stepId: string): "passed" | "failed" | "pending" => {
+    const result = stepResults.find((r: StepResult) => r.testStepId === stepId);
+    if (!result) return "pending";
+    if (result.status === "PASSED") return "passed";
+    if (result.status === "FAILED") return "failed";
+    return "pending";
+  };
+
+  // Merge step results with steps for display
+  const stepsWithResults = steps.map((step) => ({
+    ...step,
+    status: currentRun ? getStepStatus(step.id) : step.status,
+  }));
+
+  // Update steps when initialSteps changes
+  useEffect(() => {
+    setSteps(initialSteps.map(convertApiStepToDisplay));
+  }, [initialSteps]);
+
+  // Start/stop polling when recording state changes
+  useEffect(() => {
+    if (isRecordingThisTest && onRefresh) {
+      // Start polling
+      pollingRef.current = setInterval(async () => {
+        await onRefresh();
+      }, POLLING_INTERVAL);
+    } else {
+      // Stop polling
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    }
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [isRecordingThisTest, onRefresh]);
+
+  const handleRecordClick = async () => {
+    // Check if extension is installed
+    if (!isExtensionInstalled) {
+      setIsInstallModalOpen(true);
+      return;
+    }
+
+    // If already recording this test, stop it
+    if (isRecordingThisTest) {
+      await stopRecording();
+      // Refresh to get final steps
+      if (onRefresh) {
+        await onRefresh();
+      }
+      return;
+    }
+
+    // Get baseUrl from project context
+    const baseUrl = projectContext?.selectedProject?.baseUrl;
+    if (!baseUrl) {
+      console.error("No project baseUrl available");
+      return;
+    }
+
+    setIsStartingRecording(true);
+    try {
+      const result = await startRecording({
+        testId,
+        testName: fileName,
+        baseUrl,
+      });
+
+      if (!result.success) {
+        console.error("Failed to start recording:", result.error);
+      }
+    } finally {
+      setIsStartingRecording(false);
+    }
+  };
+
+  const handleRetryExtensionCheck = async () => {
+    const installed = await checkExtension();
+    if (installed) {
+      setIsInstallModalOpen(false);
+    }
+  };
+
+  const handleRunClick = async () => {
+    if (isRunning) {
+      await cancelRun();
+    } else {
+      await startRun();
+    }
+  };
 
   const handleUpdateStep = (
     stepId: string,
@@ -80,6 +192,40 @@ const TestFile = ({ fileName = "Demo Daten" }: TestFileProps) => {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Recording Banner */}
+      {isRecordingThisTest && (
+        <div className="bg-red-500 text-white px-6 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-white animate-pulse" />
+            <span className="font-medium">Recording in progress</span>
+            <span className="text-red-100">• {steps.length} steps captured</span>
+          </div>
+          <button
+            onClick={handleRecordClick}
+            className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition-colors"
+          >
+            Stop Recording
+          </button>
+        </div>
+      )}
+
+      {/* Running Banner */}
+      {isRunning && (
+        <div className="bg-primary text-white px-6 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Loader2 className="size-4 animate-spin" />
+            <span className="font-medium">Test running...</span>
+            <span className="text-primary-foreground/70">• {progress}% complete</span>
+          </div>
+          <button
+            onClick={handleRunClick}
+            className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded text-sm font-medium transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-white">
         <div className="flex items-center gap-4">
@@ -92,37 +238,60 @@ const TestFile = ({ fileName = "Demo Daten" }: TestFileProps) => {
           <div>
             <h1 className="text-lg font-semibold text-[#1f2937]">{fileName}</h1>
             <p className="text-sm text-[#667085]">
-              {steps.length} steps • Last run 2 hours ago
+              {steps.length} steps
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Stats */}
-          <div className="flex items-center gap-4 px-4 py-2 bg-[#f9f9f9] rounded-lg">
-            <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-[#22c55e]" />
-              <span className="text-sm text-[#667085]">
-                {passedCount} Passed
-              </span>
-            </div>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-[#ef4444]" />
-              <span className="text-sm text-[#667085]">
-                {failedCount} Failed
-              </span>
-            </div>
-            <div className="h-4 w-px bg-border" />
-            <span className="text-sm font-medium text-[#1f2937]">
-              {passRate}% Pass Rate
-            </span>
-          </div>
+          {/* Record Button */}
+          <button
+            onClick={handleRecordClick}
+            disabled={isChecking || isStartingRecording || (recordingState.isRecording && !isRecordingThisTest)}
+            className={`flex items-center gap-2 h-10 px-4 rounded-lg transition-colors font-medium ${
+              isRecordingThisTest
+                ? "bg-red-500 text-white hover:bg-red-600"
+                : "border border-border bg-white text-[#1f2937] hover:bg-[#f9f9f9]"
+            } ${
+              (isChecking || isStartingRecording || (recordingState.isRecording && !isRecordingThisTest))
+                ? "opacity-50 cursor-not-allowed"
+                : ""
+            }`}
+          >
+            {isRecordingThisTest ? (
+              <>
+                <Square className="size-4" fill="currentColor" />
+                <span>Stop Recording</span>
+              </>
+            ) : (
+              <>
+                <Circle className="size-4 text-red-500" fill="currentColor" />
+                <span>{isStartingRecording ? "Starting..." : "Record"}</span>
+              </>
+            )}
+          </button>
 
           {/* Run Button */}
-          <button className="flex items-center gap-2 h-10 px-4 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
-            <Play className="size-4" fill="currentColor" />
-            <span className="font-medium">Run Test</span>
+          <button
+            onClick={handleRunClick}
+            disabled={steps.length === 0 || isRecordingThisTest}
+            className={`flex items-center gap-2 h-10 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              isRunning
+                ? "bg-orange-500 text-white hover:bg-orange-600"
+                : "bg-primary text-white hover:bg-primary/90"
+            }`}
+          >
+            {isRunning ? (
+              <>
+                <Square className="size-4" fill="currentColor" />
+                <span className="font-medium">Stop ({progress}%)</span>
+              </>
+            ) : (
+              <>
+                <Play className="size-4" fill="currentColor" />
+                <span className="font-medium">Run Test</span>
+              </>
+            )}
           </button>
           <button
             onClick={() => setIsShareModalOpen(true)}
@@ -167,10 +336,31 @@ const TestFile = ({ fileName = "Demo Daten" }: TestFileProps) => {
 
       {/* Content */}
       <div className="flex-1 overflow-auto bg-[#fafafa] p-6">
-        {activeMode === "story" ? (
-          <TestFileStoryMode steps={steps} onUpdateStep={handleUpdateStep} />
+        {steps.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <div className="w-16 h-16 bg-[#f4f4f5] rounded-full flex items-center justify-center mb-4">
+              <Circle className="size-8 text-[#667085]" />
+            </div>
+            <h3 className="text-lg font-medium text-[#1f2937] mb-2">
+              No steps recorded yet
+            </h3>
+            <p className="text-[#667085] mb-6 max-w-md">
+              Click the "Record" button to start capturing browser interactions.
+              Your actions will appear here as test steps.
+            </p>
+            <button
+              onClick={handleRecordClick}
+              disabled={isChecking || isStartingRecording}
+              className="flex items-center gap-2 h-10 px-6 border border-border bg-white text-[#1f2937] rounded-lg hover:bg-[#f9f9f9] transition-colors font-medium"
+            >
+              <Circle className="size-4 text-red-500" fill="currentColor" />
+              <span>Start Recording</span>
+            </button>
+          </div>
+        ) : activeMode === "story" ? (
+          <TestFileStoryMode steps={stepsWithResults} onUpdateStep={handleUpdateStep} />
         ) : (
-          <TestFileBlockMode steps={steps} />
+          <TestFileBlockMode steps={stepsWithResults} />
         )}
       </div>
 
@@ -179,6 +369,13 @@ const TestFile = ({ fileName = "Demo Daten" }: TestFileProps) => {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         testName={fileName}
+      />
+
+      {/* Install Extension Modal */}
+      <InstallExtensionModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        onRetryCheck={handleRetryExtensionCheck}
       />
     </div>
   );

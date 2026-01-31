@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTestFileDto } from './dto/create-test-file.dto';
 import { UpdateTestFileDto } from './dto/update-test-file.dto';
+import { CreateStepDto } from './dto/create-step.dto';
 
 @Injectable()
 export class TestFilesService {
@@ -164,5 +165,110 @@ export class TestFilesService {
     return this.prisma.testFile.delete({
       where: { id },
     });
+  }
+
+  /**
+   * Create a new step for a test file
+   * Auto-increments stepNumber based on existing steps
+   */
+  async createStep(testFileId: string, userId: string, dto: CreateStepDto) {
+    const hasAccess = await this.verifyTestFileOwnership(testFileId, userId);
+    if (!hasAccess) {
+      return null;
+    }
+
+    // Get the current max stepNumber
+    const maxStep = await this.prisma.testStep.findFirst({
+      where: { testFileId },
+      orderBy: { stepNumber: 'desc' },
+      select: { stepNumber: true },
+    });
+
+    const nextStepNumber = (maxStep?.stepNumber ?? 0) + 1;
+
+    // Build the locators JSON, including qaId if provided
+    const locators = {
+      ...dto.locators,
+      ...(dto.qaId && { qaId: dto.qaId }),
+    };
+
+    // Build description with more context if needed
+    let description = dto.description;
+    if (dto.assertionType && dto.action === 'assert') {
+      description = `Assert ${dto.assertionType.replace(/_/g, ' ')}${dto.value ? `: "${dto.value}"` : ''}`;
+    }
+
+    return this.prisma.testStep.create({
+      data: {
+        testFileId,
+        stepNumber: nextStepNumber,
+        action: dto.action,
+        description,
+        value: dto.value,
+        locators: Object.keys(locators).length > 0 ? locators : undefined,
+        elementScreenshot: dto.elementScreenshot,
+      },
+    });
+  }
+
+  /**
+   * Get all steps for a test file
+   */
+  async findStepsByTestFile(testFileId: string, userId: string) {
+    const hasAccess = await this.verifyTestFileOwnership(testFileId, userId);
+    if (!hasAccess) {
+      return null;
+    }
+
+    return this.prisma.testStep.findMany({
+      where: { testFileId },
+      orderBy: { stepNumber: 'asc' },
+    });
+  }
+
+  /**
+   * Delete a step (reorders remaining steps)
+   */
+  async deleteStep(stepId: string, userId: string) {
+    // First get the step to verify ownership and get testFileId
+    const step = await this.prisma.testStep.findFirst({
+      where: { id: stepId },
+      include: {
+        testFile: {
+          include: {
+            folder: {
+              include: { project: { select: { userId: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    if (!step || step.testFile.folder.project.userId !== userId) {
+      return null;
+    }
+
+    // Delete the step
+    await this.prisma.testStep.delete({
+      where: { id: stepId },
+    });
+
+    // Reorder remaining steps
+    const remainingSteps = await this.prisma.testStep.findMany({
+      where: { testFileId: step.testFileId },
+      orderBy: { stepNumber: 'asc' },
+    });
+
+    // Update step numbers
+    await Promise.all(
+      remainingSteps.map((s, index) =>
+        this.prisma.testStep.update({
+          where: { id: s.id },
+          data: { stepNumber: index + 1 },
+        }),
+      ),
+    );
+
+    return step;
   }
 }

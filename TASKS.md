@@ -345,147 +345,189 @@
 ---
 
 ## Phase 3: Test Steps Management
+**Status:** SKIPPED ⏭️
 
-### Task 3.1: Add Test Step (Manual)
-**Status:** NOT STARTED
-
-**Backend:**
-- [ ] POST /tests/:testId/steps endpoint
-- [ ] Accept: action, description, expectedResult, targetLocators, value
-- [ ] Auto-increment stepNumber
-
-**Frontend Integration:**
-- [ ] Connect "Add Step" form to API (if manual step creation exists)
-
-**Verification:**
-- [ ] Can add step manually
-- [ ] Step appears in correct order
+> **Decision:** Skipped manual step creation. Steps will be created only via Recording (Phase 4).
+> View/edit/delete of recorded steps can be added later if needed.
 
 ---
 
-### Task 3.2: Update Test Step
-**Status:** NOT STARTED
+## Phase 4: Recording (Core Feature) - Browser Extension
 
-**Backend:**
-- [ ] PATCH /tests/:testId/steps/:stepId endpoint
-
-**Frontend Integration:**
-- [ ] Connect step edit form to API
-
-**Verification:**
-- [ ] Can edit step details
-- [ ] Changes persist
-
----
-
-### Task 3.3: Delete Test Step
-**Status:** NOT STARTED
-
-**Backend:**
-- [ ] DELETE /tests/:testId/steps/:stepId endpoint
-- [ ] Reorder remaining steps
-
-**Frontend Integration:**
-- [ ] Connect delete button to API
-- [ ] Update step numbers in UI
-
-**Verification:**
-- [ ] Can delete step
-- [ ] Remaining steps renumbered correctly
+> **Architecture:** Chrome Extension records user interactions and sends steps to backend via API.
+>
+> **User Flow:**
+> 1. User opens Test Detail page in TestBloc
+> 2. Clicks "Record" button
+> 3. New tab opens to project's baseUrl (extension injects recording script)
+> 4. Floating badge shows "🔴 Recording" with [+ Assert] and [Stop] buttons
+> 5. User performs actions → steps captured automatically
+> 6. User can add assertions by clicking [+ Assert] → select element → choose assertion type
+> 7. User stops recording via badge, extension popup, or TestBloc tab
+> 8. Steps appear in TestBloc's Story/Block Mode (real data, not mock)
 
 ---
 
-### Task 3.4: Reorder Test Steps
-**Status:** NOT STARTED
+### Task 4.1: Chrome Extension Setup
+**Status:** COMPLETE ✓
 
-**Backend:**
-- [ ] POST /tests/:testId/steps/reorder endpoint
-- [ ] Accept array of step IDs in new order
-
-**Frontend Integration:**
-- [ ] Implement drag-and-drop reordering
-- [ ] Call API on drop
+**Extension:**
+- [x] Create Chrome extension (Manifest V3)
+- [x] Create manifest.json with permissions (activeTab, storage, tabs, scripting)
+- [x] Create background service worker
+- [x] Create basic popup UI (status display, stop button)
+- [x] Implement auth: receive JWT token from TestBloc app via message passing
 
 **Verification:**
-- [ ] Can drag steps to reorder
-- [ ] New order persists after refresh
+- [x] Extension loads in Chrome (chrome://extensions)
+- [x] Can receive auth token from TestBloc app
 
 ---
 
-## Phase 4: Recording (Core Feature)
+### Task 4.2: Recording Flow - Start from TestBloc
+**Status:** COMPLETE ✓
 
-### Task 4.1: Recording WebSocket Setup
-**Status:** NOT STARTED
+**Frontend (TestBloc App):**
+- [x] Add "Record" button to Test Detail page header (next to Run Test)
+- [x] Check if extension is installed (custom event or chrome.runtime)
+- [x] If not installed → Show "Install Extension" modal with Chrome Web Store link
+- [x] If installed → Send message to extension with: testId, baseUrl, authToken
+- [x] Extension opens new tab to baseUrl and starts recording
 
-**Backend:**
-- [ ] Create RecordingGateway (WebSocket)
-- [ ] Handle 'recording:start' event
-- [ ] Handle 'recording:stop' event
-- [ ] Handle 'recording:step' event
-
-**Frontend Integration:**
-- [ ] Set up WebSocket connection to backend
-- [ ] Emit events when recording starts/stops
+**Extension:**
+- [x] Listen for "start-recording" message from TestBloc app
+- [x] Store recording context (testId, baseUrl, authToken)
+- [x] Open new tab to baseUrl
+- [x] Inject content script into the new tab
 
 **Verification:**
-- [ ] WebSocket connects successfully
-- [ ] Events are received by backend
+- [x] Click "Record" in TestBloc → new tab opens to project baseUrl
+- [x] Content script is injected (console log visible)
 
 ---
 
-### Task 4.2: Browser Launch for Recording
-**Status:** NOT STARTED
+### Task 4.3: Content Script - Event Capture
+**Status:** COMPLETE ✓
 
-**Backend:**
-- [ ] Launch Playwright browser on 'recording:start'
-- [ ] Inject qa-tagger.ts into page
-- [ ] Navigate to project's baseUrl
-- [ ] Emit 'recording:ready' when browser is open
+> **Reference:** Used `/qa-tagger.ts` as the foundation - selector algorithms integrated into content.js
 
-**Frontend Integration:**
-- [ ] Show "Recording..." status when ready
-- [ ] Handle connection errors
+**Extension (Content Script):**
+- [x] Integrate `qa-tagger.ts` into content script (or bundle it)
+- [x] Auto-generate `data-qa-id` on interactive elements (via QATagger)
+- [x] Inject floating recording badge UI into page
+- [x] Capture click events with LocatorBundle:
+  ```ts
+  LocatorBundle = {
+    role?: { role, name }  // 1st priority - getByRole
+    testId?: string        // 2nd priority - data-testid/data-qa
+    label?: string         // 3rd priority - getByLabel
+    placeholder?: string   // 4th priority - getByPlaceholder
+    text?: string          // 5th priority - getByText
+    altText?: string       // 6th priority - getByAltText
+    title?: string         // 7th priority - getByTitle
+    css?: string           // 8th priority - generated CSS
+    xpath?: string         // 9th priority - generated XPath
+  }
+  ```
+- [x] Capture input/change events (value typed, element selectors)
+- [x] Capture navigation events (URL changes, page loads)
+- [x] Filter out auto-generated classes/IDs (use `looksAutoGenerated()`)
+- [x] Send captured steps to background worker → backend API
+
+**Floating Badge UI:**
+```
+┌─────────────────────────────┐
+│ 🔴 Recording to "Login Test"│
+│ ─────────────────────────── │
+│ [+ Assert]  [⏹ Stop]        │
+└─────────────────────────────┘
+```
 
 **Verification:**
-- [ ] Browser opens when user clicks Record
-- [ ] qa-tagger.ts is injected (can see data-qa-id attributes)
+- [x] Click on element → step has LocatorBundle with multiple strategies
+- [x] Type in input → value captured
+- [x] Badge visible and draggable
+- [x] Elements get `data-qa-id` attributes
 
 ---
 
-### Task 4.3: Capture Recording Steps
-**Status:** NOT STARTED
+### Task 4.4: Content Script - Assertions
+**Status:** COMPLETE ✓
 
-**Backend:**
-- [ ] Listen for messages from qa-tagger (via Playwright)
-- [ ] Parse ElementPickedMessage
-- [ ] Save step to database
-- [ ] Emit 'recording:step-saved' with step data
-
-**Frontend Integration:**
-- [ ] Listen for 'recording:step-saved' events
-- [ ] Add step to UI in real-time
-- [ ] Show step preview
+**Extension (Content Script):**
+- [x] Click [+ Assert] → Enter assertion mode (cursor changes)
+- [x] Elements highlight on hover
+- [x] Click element → Show assertion type popup:
+  - Assert text equals
+  - Assert text contains
+  - Assert is visible
+  - Assert exists
+- [x] User selects assertion → Step captured with action="assert"
+- [x] Exit assertion mode, return to normal recording
 
 **Verification:**
-- [ ] Click element in browser → step appears in frontend
-- [ ] Step saved to database with correct locators
+- [x] Can select element for assertion
+- [x] Assertion step captured with correct type and expected value
 
 ---
 
-### Task 4.4: Stop Recording
-**Status:** NOT STARTED
+### Task 4.5: Backend - Steps API
+**Status:** COMPLETE ✓
 
 **Backend:**
-- [ ] Close Playwright browser on 'recording:stop'
-- [ ] Emit 'recording:complete'
-
-**Frontend Integration:**
-- [ ] Close WebSocket connection
-- [ ] Show final test with all steps
+- [x] POST /tests/:testId/steps endpoint
+- [x] DTO: action, description, locators (JSON), value, qaId, screenshot (base64)
+- [x] Auto-increment stepNumber based on existing steps
+- [x] Verify ownership (testFile → folder → project → user)
+- [x] Return saved step with ID
+- [x] GET /tests/:testId/steps endpoint
+- [x] DELETE /steps/:stepId endpoint
 
 **Verification:**
-- [ ] Browser closes when user clicks Stop
-- [ ] All steps are saved and displayed
+- [x] Can create step via API (Swagger/curl)
+- [x] stepNumber auto-increments correctly
+
+---
+
+### Task 4.6: Frontend - Real-time Step Display
+**Status:** COMPLETE ✓
+
+**Frontend (TestBloc App):**
+- [x] When recording starts, show "Recording in progress" indicator (red banner)
+- [x] Poll GET /tests/:testId every 2 seconds for new steps during recording
+- [x] Update Story Mode and Block Mode with real steps from API
+- [x] Remove mock data from TestFile component
+- [x] Show step count updating in header
+
+**Verification:**
+- [x] Record a click → step appears in TestBloc within seconds
+- [x] Story Mode shows real recorded steps
+- [x] Block Mode shows real recorded steps (read-only)
+
+---
+
+### Task 4.7: Stop Recording
+**Status:** COMPLETE ✓
+
+**Extension:**
+- [x] Stop via floating badge [Stop] button
+- [x] Stop via extension popup
+- [x] Listen for "stop-recording" message from TestBloc app
+
+**On Stop:**
+- [x] Remove content script / floating badge from page
+- [x] Clear recording context
+- [x] Notify TestBloc app that recording stopped
+- [x] Extension icon badge clears
+
+**Frontend:**
+- [x] Add "Stop Recording" button (visible when recording active)
+- [x] Recording banner with stop button
+- [x] Refresh test data on stop
+
+**Verification:**
+- [x] Can stop from badge, extension, or TestBloc
+- [x] Recording cleans up properly
 
 ---
 
@@ -652,12 +694,12 @@
 | Phase 1: Projects | 5 tasks | 5/5 COMPLETE ✓ |
 | Phase 1.5: Folders | 4 tasks | 4/4 COMPLETE ✓ |
 | Phase 2: Test Files | 5 tasks | 5/5 COMPLETE ✓ |
-| Phase 3: Steps | 4 tasks | NOT STARTED |
-| Phase 4: Recording | 4 tasks | NOT STARTED |
+| Phase 3: Steps | - | SKIPPED ⏭️ |
+| Phase 4: Recording | 7 tasks | 7/7 COMPLETE ✓ |
 | Phase 5: Execution | 5 tasks | NOT STARTED |
 | Phase 6: Share | 3 tasks | NOT STARTED |
 
-**Total: 33 tasks**
+**Total: 32 tasks** (Phase 3 skipped, Phase 4 complete)
 
 ---
 
