@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Play, MoreHorizontal, Share2, Circle, Square, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, MoreHorizontal, Share2, Circle, Square, Loader2, ChevronDown, Monitor, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import TestFileStoryMode from "./TestFileStoryMode";
 import TestFileBlockMode from "./TestFileBlockMode";
@@ -77,13 +77,21 @@ const TestFile = ({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const [runHeadless, setRunHeadless] = useState(true);
+  const [isRunDropdownOpen, setIsRunDropdownOpen] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const runDropdownRef = useRef<HTMLDivElement>(null);
 
   const isRecordingThisTest = recordingState.isRecording && recordingState.testId === testId;
 
+  // Helper to get step result by step ID
+  const getStepResult = (stepId: string): StepResult | undefined => {
+    return stepResults.find((r: StepResult) => r.testStepId === stepId);
+  };
+
   // Helper to convert step result status to display status
   const getStepStatus = (stepId: string): "passed" | "failed" | "pending" => {
-    const result = stepResults.find((r: StepResult) => r.testStepId === stepId);
+    const result = getStepResult(stepId);
     if (!result) return "pending";
     if (result.status === "PASSED") return "passed";
     if (result.status === "FAILED") return "failed";
@@ -91,15 +99,31 @@ const TestFile = ({
   };
 
   // Merge step results with steps for display
-  const stepsWithResults = steps.map((step) => ({
-    ...step,
-    status: currentRun ? getStepStatus(step.id) : step.status,
-  }));
+  const stepsWithResults = steps.map((step) => {
+    const result = currentRun ? getStepResult(step.id) : undefined;
+    return {
+      ...step,
+      status: currentRun ? getStepStatus(step.id) : step.status,
+      // Use screenshot from run result if available, otherwise use recorded screenshot
+      screenshot: result?.screenshotUrl ?? step.screenshot,
+    };
+  });
 
   // Update steps when initialSteps changes
   useEffect(() => {
     setSteps(initialSteps.map(convertApiStepToDisplay));
   }, [initialSteps]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (runDropdownRef.current && !runDropdownRef.current.contains(event.target as Node)) {
+        setIsRunDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Start/stop polling when recording state changes
   useEffect(() => {
@@ -170,11 +194,12 @@ const TestFile = ({
     }
   };
 
-  const handleRunClick = async () => {
+  const handleRunClick = async (headless?: boolean) => {
     if (isRunning) {
       await cancelRun();
     } else {
-      await startRun();
+      await startRun(headless ?? runHeadless);
+      setIsRunDropdownOpen(false);
     }
   };
 
@@ -271,28 +296,75 @@ const TestFile = ({
             )}
           </button>
 
-          {/* Run Button */}
-          <button
-            onClick={handleRunClick}
-            disabled={steps.length === 0 || isRecordingThisTest}
-            className={`flex items-center gap-2 h-10 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              isRunning
-                ? "bg-orange-500 text-white hover:bg-orange-600"
-                : "bg-primary text-white hover:bg-primary/90"
-            }`}
-          >
-            {isRunning ? (
-              <>
-                <Square className="size-4" fill="currentColor" />
-                <span className="font-medium">Stop ({progress}%)</span>
-              </>
-            ) : (
-              <>
-                <Play className="size-4" fill="currentColor" />
-                <span className="font-medium">Run Test</span>
-              </>
+          {/* Run Button with Dropdown */}
+          <div className="relative" ref={runDropdownRef}>
+            <div className="flex">
+              <button
+                onClick={() => handleRunClick()}
+                disabled={steps.length === 0 || isRecordingThisTest}
+                className={`flex items-center gap-2 h-10 px-4 rounded-l-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isRunning
+                    ? "bg-orange-500 text-white hover:bg-orange-600"
+                    : "bg-primary text-white hover:bg-primary/90"
+                }`}
+              >
+                {isRunning ? (
+                  <>
+                    <Square className="size-4" fill="currentColor" />
+                    <span className="font-medium">Stop ({progress}%)</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="size-4" fill="currentColor" />
+                    <span className="font-medium">Run {runHeadless ? "" : "(Browser)"}</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setIsRunDropdownOpen(!isRunDropdownOpen)}
+                disabled={steps.length === 0 || isRecordingThisTest || isRunning}
+                className={`flex items-center justify-center h-10 px-2 rounded-r-lg border-l border-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isRunning
+                    ? "bg-orange-500 text-white"
+                    : "bg-primary text-white hover:bg-primary/90"
+                }`}
+              >
+                <ChevronDown className="size-4" />
+              </button>
+            </div>
+
+            {/* Dropdown Menu */}
+            {isRunDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-border py-1 z-50">
+                <button
+                  onClick={() => {
+                    setRunHeadless(true);
+                    handleRunClick(true);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-[#f9f9f9] transition-colors"
+                >
+                  <Monitor className="size-4 text-[#667085]" />
+                  <div>
+                    <div className="font-medium text-[#1f2937]">Run Headless</div>
+                    <div className="text-xs text-[#667085]">Fast, no browser window</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    setRunHeadless(false);
+                    handleRunClick(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-[#f9f9f9] transition-colors"
+                >
+                  <Eye className="size-4 text-[#667085]" />
+                  <div>
+                    <div className="font-medium text-[#1f2937]">Run with Browser</div>
+                    <div className="text-xs text-[#667085]">Watch test execute</div>
+                  </div>
+                </button>
+              </div>
             )}
-          </button>
+          </div>
           <button
             onClick={() => setIsShareModalOpen(true)}
             className="flex items-center gap-2 h-10 px-4 border border-border bg-white text-[#1f2937] rounded-lg hover:bg-[#f9f9f9] transition-colors"

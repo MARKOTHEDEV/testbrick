@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -10,6 +11,7 @@ import {
   ApiOperation,
   ApiBearerAuth,
   ApiResponse,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { TestRunsService } from './test-runs.service';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
@@ -25,14 +27,23 @@ export class TestRunsController {
   @UseGuards(ClerkAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Start a new test run' })
+  @ApiQuery({
+    name: 'headless',
+    required: false,
+    type: Boolean,
+    description: 'Run in headless mode (default: true)',
+  })
   @ApiResponse({ status: 201, description: 'Test run started successfully' })
   @ApiResponse({ status: 404, description: 'Test file not found' })
   @ApiResponse({ status: 403, description: 'Cannot run test with no steps' })
   async startRun(
     @Param('testId') testId: string,
+    @Query('headless') headless: string | undefined,
     @CurrentUser() auth: AuthPayload,
   ) {
-    return this.testRunsService.startRun(testId, auth.userId);
+    // Parse headless param - default to true, only false if explicitly 'false'
+    const isHeadless = headless !== 'false';
+    return this.testRunsService.startRun(testId, auth.userId, isHeadless);
   }
 
   @Get(':runId')

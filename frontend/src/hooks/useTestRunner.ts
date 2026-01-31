@@ -129,8 +129,9 @@ export function useTestRunner(testId: string) {
 
   /**
    * Start a test run
+   * @param headless - Run in headless mode (default: true)
    */
-  const startRun = useCallback(async (): Promise<{
+  const startRun = useCallback(async (headless: boolean = true): Promise<{
     success: boolean;
     error?: string;
   }> => {
@@ -147,7 +148,7 @@ export function useTestRunner(testId: string) {
     }));
 
     try {
-      const run = await authFetch<TestRun>(`/test-runs/tests/${testId}/run`, {
+      const run = await authFetch<TestRun>(`/test-runs/tests/${testId}/run?headless=${headless}`, {
         method: "POST",
       });
 

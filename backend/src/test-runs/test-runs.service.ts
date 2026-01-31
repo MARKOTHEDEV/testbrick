@@ -26,8 +26,9 @@ export class TestRunsService {
 
   /**
    * Start a new test run
+   * @param headless - Run in headless mode (default: true)
    */
-  async startRun(testFileId: string, userId: string) {
+  async startRun(testFileId: string, userId: string, headless: boolean = true) {
     // Verify ownership
     await this.verifyTestFileOwnership(testFileId, userId);
 
@@ -76,7 +77,7 @@ export class TestRunsService {
     this.activeRuns.set(testRun.id, { cancelled: false });
 
     // Execute test asynchronously (don't await)
-    this.executeTest(testRun.id, testFile, testFile.folder.project.baseUrl);
+    this.executeTest(testRun.id, testFile, testFile.folder.project.baseUrl, headless);
 
     // Return the run immediately (client will poll for status)
     return this.findOne(testRun.id, userId);
@@ -98,6 +99,7 @@ export class TestRunsService {
       }>;
     },
     baseUrl: string,
+    headless: boolean = true,
   ) {
     let context: PlaywrightContext | null = null;
     const capturedErrors: CapturedError[] = [];
@@ -113,7 +115,7 @@ export class TestRunsService {
       });
 
       // Create browser context
-      context = await this.playwrightService.createContext();
+      context = await this.playwrightService.createContext({ headless });
       const { page, browser } = context;
 
       // Setup error listeners

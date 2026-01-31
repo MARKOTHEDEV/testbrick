@@ -13,6 +13,10 @@ export interface PlaywrightContext {
   page: Page;
 }
 
+export interface PlaywrightOptions {
+  headless?: boolean;
+}
+
 /**
  * QA ID Tagger Script - Same algorithm as the Chrome extension
  * This gets injected into pages during test execution to add data-qa-id attributes
@@ -255,18 +259,21 @@ export class PlaywrightService implements OnModuleDestroy {
    * Create a new browser context for test execution
    */
   async createContext(
-    options?: BrowserContextOptions,
+    playwrightOptions?: PlaywrightOptions,
+    contextOptions?: BrowserContextOptions,
   ): Promise<PlaywrightContext> {
+    const headless = playwrightOptions?.headless ?? true; // Default to headless
+
     const browser = await chromium.launch({
-      headless: false, // Set to true for production
-      slowMo: 500, // Slow down actions by 500ms for visibility (remove in production)
+      headless,
+      slowMo: headless ? 0 : 500, // Only slow down in headed mode for visibility
     });
 
     this.activeBrowsers.add(browser);
 
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
-      ...options,
+      ...contextOptions,
     });
 
     // Inject QA tagger script on every page load

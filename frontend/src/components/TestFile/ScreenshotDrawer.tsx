@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { X, Download, ZoomIn, ZoomOut, ExternalLink } from "lucide-react";
+import { X, Download, ExternalLink } from "lucide-react";
 
 interface ScreenshotDrawerProps {
   isOpen: boolean;
@@ -16,6 +16,24 @@ const ScreenshotDrawer = ({
   onClose,
   screenshot,
 }: ScreenshotDrawerProps) => {
+  // Download screenshot as PNG
+  const handleDownload = () => {
+    if (!screenshot?.url) return;
+
+    const link = document.createElement("a");
+    link.href = screenshot.url;
+    link.download = `step-${screenshot.stepNumber}-screenshot.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Open in new tab
+  const handleOpenNewTab = () => {
+    if (!screenshot?.url) return;
+    window.open(screenshot.url, "_blank");
+  };
+
   // Close on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -64,49 +82,59 @@ const ScreenshotDrawer = ({
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-2 px-6 py-3 border-b border-border bg-[#f9fafb]">
-          <button className="flex items-center justify-center size-8 rounded-md hover:bg-white text-[#667085] transition-colors">
-            <ZoomIn className="size-4" />
-          </button>
-          <button className="flex items-center justify-center size-8 rounded-md hover:bg-white text-[#667085] transition-colors">
-            <ZoomOut className="size-4" />
-          </button>
-          <div className="h-4 w-px bg-border mx-1" />
-          <button className="flex items-center justify-center size-8 rounded-md hover:bg-white text-[#667085] transition-colors">
-            <ExternalLink className="size-4" />
-          </button>
-          <button className="flex items-center justify-center size-8 rounded-md hover:bg-white text-[#667085] transition-colors">
-            <Download className="size-4" />
-          </button>
-        </div>
+        {screenshot.url && (
+          <div className="flex items-center gap-2 px-6 py-3 border-b border-border bg-[#f9fafb]">
+            <button
+              onClick={handleOpenNewTab}
+              className="flex items-center justify-center size-8 rounded-md hover:bg-white text-[#667085] transition-colors"
+              title="Open in new tab"
+            >
+              <ExternalLink className="size-4" />
+            </button>
+            <button
+              onClick={handleDownload}
+              className="flex items-center justify-center size-8 rounded-md hover:bg-white text-[#667085] transition-colors"
+              title="Download"
+            >
+              <Download className="size-4" />
+            </button>
+          </div>
+        )}
 
         {/* Screenshot Content */}
         <div className="flex-1 overflow-auto p-6 bg-[#f4f4f5]">
           <div className="bg-white rounded-lg border border-border shadow-sm overflow-hidden">
-            {/* Placeholder for screenshot - in real app this would be the actual image */}
-            <div className="aspect-video bg-gradient-to-br from-[#f9fafb] to-[#f4f4f5] flex items-center justify-center">
-              <div className="text-center">
-                <div className="size-16 mx-auto mb-4 rounded-xl bg-[#f4f4f5] flex items-center justify-center">
-                  <svg
-                    className="size-8 text-[#9ca3af]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
+            {screenshot.url ? (
+              <img
+                src={screenshot.url}
+                alt={`Screenshot of step ${screenshot.stepNumber}`}
+                className="w-full h-auto"
+              />
+            ) : (
+              <div className="aspect-video bg-gradient-to-br from-[#f9fafb] to-[#f4f4f5] flex items-center justify-center">
+                <div className="text-center">
+                  <div className="size-16 mx-auto mb-4 rounded-xl bg-[#f4f4f5] flex items-center justify-center">
+                    <svg
+                      className="size-8 text-[#9ca3af]"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-[#6b7280]">No screenshot available</p>
+                  <p className="text-xs text-[#9ca3af] mt-1">
+                    Run the test to capture screenshots
+                  </p>
                 </div>
-                <p className="text-sm text-[#6b7280]">Screenshot Preview</p>
-                <p className="text-xs text-[#9ca3af] mt-1">
-                  {screenshot.url || "No screenshot available"}
-                </p>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
