@@ -48,7 +48,7 @@
 ---
 
 ### Task 0.3: Clerk Authentication
-**Status:** READY FOR VERIFICATION
+**Status:** COMPLETE ✓
 
 **Backend:**
 - [x] Install Clerk SDK (@clerk/backend, svix)
@@ -64,11 +64,17 @@
 - [x] Test protected endpoint returns 401 without token ✓ (curl verified)
 - [x] Update ProtectedRoute to use Clerk auth
 - [x] Update AuthLayout to use Clerk auth
-- [x] Replace auth page with Clerk SignIn/SignUp components
+- [x] Custom auth UI with Clerk hooks (useSignIn, useSignUp) - NOT Clerk's built-in components
+- [x] OAuth SSO callback handling (/auth/sso-callback)
+- [x] User menu with logout functionality
+- [x] Fun animal avatars (Bear, Cat, Fox, Panda, Bunny, Owl) - deterministic by user ID
+- [x] Animated TestBrickLogo for loading states
 
 **Verification:**
 - [x] Unauthorized request to protected route returns 401
-- [ ] Authorized request returns user data (manual test needed)
+- [x] Login/Logout working (manually verified)
+- [x] Google/GitHub OAuth working
+- [x] User menu displays with avatar and name
 
 ---
 
@@ -544,7 +550,7 @@
 
 | Phase | Tasks | Status |
 |-------|-------|--------|
-| Phase 0: Setup | 3 tasks | IN PROGRESS (2/3) |
+| Phase 0: Setup | 3 tasks | COMPLETE ✓ |
 | Phase 1: Projects | 4 tasks | NOT STARTED |
 | Phase 2: Test Files | 5 tasks | NOT STARTED |
 | Phase 3: Steps | 4 tasks | NOT STARTED |

@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { TestBrickLogo } from "@/components/ui/testbrick-logo";
 import { UserMenu } from "@/components/user-menu";
+import CreateProjectModal from "@/components/CreateProjectModal";
+import { useApi } from "@/hooks/useApi";
+import type { Project, CreateProjectInput } from "@/lib/api";
 import {
   Search,
   Bell,
@@ -13,6 +16,8 @@ import {
   MoreVertical,
   PanelLeftClose,
   PanelLeft,
+  Plus,
+  Loader2,
 } from "lucide-react";
 
 const DashboardTopBar = () => {
@@ -57,81 +62,38 @@ const DashboardTopBar = () => {
   );
 };
 
-// Mock data for the file tree
-const mockProjects = [
-  {
-    id: "1",
-    name: "API Testing",
-    type: "folder" as const,
-    progress: 98,
-    isExpanded: true,
-    children: [
-      { id: "1-1", name: "Demo Daten", type: "file" as const, checked: false },
-      { id: "1-2", name: "Projeckt Wolf", type: "file" as const, checked: false },
-    ],
-  },
-  {
-    id: "2",
-    name: "API Testing",
-    type: "folder" as const,
-    progress: 99,
-    isExpanded: false,
-    children: [],
-  },
-];
-
-type FileItem = {
-  id: string;
-  name: string;
-  type: "file";
-  checked: boolean;
-};
-
-type FolderItem = {
-  id: string;
-  name: string;
-  type: "folder";
-  progress: number;
+// Extended project type with UI state
+type ProjectWithState = Project & {
   isExpanded: boolean;
-  children: FileItem[];
 };
 
 const DashboardSidebar = ({
   isCollapsed,
   onToggle,
+  projects,
+  isLoading,
+  onCreateProject,
 }: {
   isCollapsed: boolean;
   onToggle: () => void;
+  projects: ProjectWithState[];
+  isLoading: boolean;
+  onCreateProject: () => void;
 }) => {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<FolderItem[]>(mockProjects);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [environment] = useState("staging");
 
-  const toggleFolder = (folderId: string) => {
-    setProjects((prev) =>
-      prev.map((project) =>
-        project.id === folderId
-          ? { ...project, isExpanded: !project.isExpanded }
-          : project
-      )
-    );
-  };
-
-  const toggleFileCheck = (folderId: string, fileId: string) => {
-    setProjects((prev) =>
-      prev.map((project) =>
-        project.id === folderId
-          ? {
-              ...project,
-              children: project.children.map((child) =>
-                child.id === fileId
-                  ? { ...child, checked: !child.checked }
-                  : child
-              ),
-            }
-          : project
-      )
-    );
+  const toggleFolder = (projectId: string) => {
+    setExpandedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
   };
 
   if (isCollapsed) {
@@ -142,6 +104,13 @@ const DashboardSidebar = ({
           className="p-2 hover:bg-[#f9f9f9] rounded-md text-[#667085]"
         >
           <PanelLeft className="size-5" />
+        </button>
+        <button
+          onClick={onCreateProject}
+          className="mt-2 p-2 hover:bg-[#f9f9f9] rounded-md text-primary"
+          title="New Project"
+        >
+          <Plus className="size-5" />
         </button>
         <div className="mt-4 flex flex-col gap-2">
           {projects.map((project) => (
@@ -163,12 +132,21 @@ const DashboardSidebar = ({
       {/* Header with collapse button */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <span className="text-sm font-medium text-[#1f2937]">Explorer</span>
-        <button
-          onClick={onToggle}
-          className="p-1 hover:bg-[#f9f9f9] rounded-md text-[#667085]"
-        >
-          <PanelLeftClose className="size-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onCreateProject}
+            className="p-1 hover:bg-[#f9f9f9] rounded-md text-primary"
+            title="New Project"
+          >
+            <Plus className="size-4" />
+          </button>
+          <button
+            onClick={onToggle}
+            className="p-1 hover:bg-[#f9f9f9] rounded-md text-[#667085]"
+          >
+            <PanelLeftClose className="size-4" />
+          </button>
+        </div>
       </div>
 
       {/* URL Input */}
@@ -194,80 +172,81 @@ const DashboardSidebar = ({
 
       {/* File Tree */}
       <div className="flex-1 overflow-y-auto px-4 pt-6">
-        <div className="flex flex-col gap-3">
-          {projects.map((project) => (
-            <div key={project.id}>
-              {/* Folder Row */}
-              <button
-                onClick={() => toggleFolder(project.id)}
-                className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded ${
-                  project.isExpanded
-                    ? "bg-[#fcf5ff] text-primary"
-                    : "hover:bg-[#f9f9f9] text-[#667085]"
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  {project.isExpanded ? (
-                    <ChevronDown className="size-4" />
-                  ) : (
-                    <ChevronRight className="size-4" />
-                  )}
-                  {project.isExpanded ? (
-                    <FolderOpen className="size-5" />
-                  ) : (
-                    <Folder className="size-5" />
-                  )}
-                  <span className="text-sm capitalize">{project.name}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-xs text-[#519c66]">{project.progress}%</span>
-                  <MoreVertical className="size-5 text-[#667085]" />
-                </div>
-              </button>
-
-              {/* Children Files */}
-              {project.isExpanded && project.children.length > 0 && (
-                <div className="ml-[54px] mt-3 flex flex-col gap-3">
-                  {project.children.map((file) => (
-                    <div
-                      key={file.id}
-                      className="flex items-center justify-between cursor-pointer hover:bg-[#f9f9f9] rounded px-2 py-1"
-                      onClick={() => navigate(`/dashboard/test/${file.id}`)}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="size-5 text-[#667085]" />
-                        <span className="text-sm text-[#667085] capitalize">
-                          {file.name}
-                        </span>
-                      </div>
-                      <div
-                        className={`size-4 border rounded ${
-                          file.checked
-                            ? "bg-primary border-primary"
-                            : "border-[#667085]"
-                        }`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFileCheck(project.id, file.id);
-                        }}
-                      >
-                        {file.checked && (
-                          <svg
-                            viewBox="0 0 16 16"
-                            fill="white"
-                            className="size-4"
-                          >
-                            <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z" />
-                          </svg>
-                        )}
-                      </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="size-6 animate-spin text-primary" />
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 text-center">
+            <Folder className="size-12 text-[#667085] mb-3" />
+            <p className="text-sm text-[#667085] mb-3">No projects yet</p>
+            <button
+              onClick={onCreateProject}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 rounded-lg transition-colors"
+            >
+              <Plus className="size-4" />
+              Create Project
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {projects.map((project) => {
+              const isExpanded = expandedProjects.has(project.id);
+              return (
+                <div key={project.id}>
+                  {/* Folder Row */}
+                  <button
+                    onClick={() => toggleFolder(project.id)}
+                    className={`w-full flex items-center justify-between px-2.5 py-2.5 rounded ${
+                      isExpanded
+                        ? "bg-[#fcf5ff] text-primary"
+                        : "hover:bg-[#f9f9f9] text-[#667085]"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {isExpanded ? (
+                        <ChevronDown className="size-4" />
+                      ) : (
+                        <ChevronRight className="size-4" />
+                      )}
+                      {isExpanded ? (
+                        <FolderOpen className="size-5" />
+                      ) : (
+                        <Folder className="size-5" />
+                      )}
+                      <span className="text-sm">{project.name}</span>
                     </div>
-                  ))}
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs text-[#667085]">
+                        {project._count.testFiles} tests
+                      </span>
+                      <MoreVertical className="size-5 text-[#667085]" />
+                    </div>
+                  </button>
+
+                  {/* Expanded Project Content - placeholder for now */}
+                  {isExpanded && (
+                    <div className="ml-[54px] mt-3 flex flex-col gap-3">
+                      {project._count.testFiles === 0 ? (
+                        <p className="text-xs text-[#667085] italic">
+                          No test files yet
+                        </p>
+                      ) : (
+                        <button
+                          onClick={() => navigate(`/dashboard/project/${project.id}`)}
+                          className="flex items-center gap-1.5 text-sm text-primary hover:underline"
+                        >
+                          <FileText className="size-4" />
+                          View {project._count.testFiles} test files
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -275,6 +254,34 @@ const DashboardSidebar = ({
 
 const DashboardLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [projects, setProjects] = useState<ProjectWithState[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { authFetch } = useApi();
+
+  const fetchProjects = useCallback(async () => {
+    try {
+      const data = await authFetch<Project[]>("/projects");
+      setProjects(data.map((p) => ({ ...p, isExpanded: false })));
+    } catch (err) {
+      console.error("Failed to fetch projects:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [authFetch]);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  const handleCreateProject = async (data: CreateProjectInput) => {
+    await authFetch<Project>("/projects", {
+      method: "POST",
+      body: data,
+    });
+    // Refresh project list
+    await fetchProjects();
+  };
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -283,11 +290,19 @@ const DashboardLayout = () => {
         <DashboardSidebar
           isCollapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          projects={projects}
+          isLoading={isLoading}
+          onCreateProject={() => setIsCreateModalOpen(true)}
         />
         <main className="flex-1 overflow-auto">
           <Outlet />
         </main>
       </div>
+      <CreateProjectModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateProject}
+      />
     </div>
   );
 };

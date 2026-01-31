@@ -53,3 +53,22 @@ export interface CurrentUser {
 export async function getCurrentUser(token: string): Promise<CurrentUser> {
   return apiRequest('/auth/me', { token });
 }
+
+// Projects API
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  baseUrl: string;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    testFiles: number;
+  };
+}
+
+export interface CreateProjectInput {
+  name: string;
+  description?: string;
+  baseUrl: string;
+}
